@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pymysql
+pandas
+yfinance
+python-dotenv
+pydantic
+alembic
