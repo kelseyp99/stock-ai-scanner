@@ -1,0 +1,33 @@
+/Users/tinman/Projects/stock-ai-scanner/backend/.venv/lib/python3.13/site-packages/pydantic/_internal/_config.py:386: UserWarning: Valid config keys have changed in V2:
+* 'orm_mode' has been renamed to 'from_attributes'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [71485]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:51544 - "GET /options/AAPL HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51561 - "GET /options/AAPL/strategies HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51562 - "GET /options/AAPL/probabilities?strike=299 HTTP/1.1" 200 OK
+options AI summary failed: OPENROUTER_API_KEY is not set. Add it to backend/.env to enable AI summaries.
+Traceback (most recent call last):
+  File "/Users/tinman/Projects/stock-ai-scanner/backend/app/services/options_ai_summary_service.py", line 31, in generate_options_summary
+    text = openrouter_service.call_openrouter_chat(messages, model_id=model)
+  File "/Users/tinman/Projects/stock-ai-scanner/backend/app/services/openrouter_service.py", line 43, in call_openrouter_chat
+    raise RuntimeError(
+    ...<2 lines>...
+    )
+RuntimeError: OPENROUTER_API_KEY is not set. Add it to backend/.env to enable AI summaries.
+INFO:     127.0.0.1:51564 - "POST /options/analyze HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51570 - "GET /options/TSLA HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51577 - "GET /options/TSLA/strategies HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51579 - "GET /options/TSLA/probabilities?strike=437 HTTP/1.1" 200 OK
+options AI summary failed: OPENROUTER_API_KEY is not set. Add it to backend/.env to enable AI summaries.
+Traceback (most recent call last):
+  File "/Users/tinman/Projects/stock-ai-scanner/backend/app/services/options_ai_summary_service.py", line 31, in generate_options_summary
+    text = openrouter_service.call_openrouter_chat(messages, model_id=model)
+  File "/Users/tinman/Projects/stock-ai-scanner/backend/app/services/openrouter_service.py", line 43, in call_openrouter_chat
+    raise RuntimeError(
+    ...<2 lines>...
+    )
+RuntimeError: OPENROUTER_API_KEY is not set. Add it to backend/.env to enable AI summaries.
+INFO:     127.0.0.1:51580 - "POST /options/analyze HTTP/1.1" 200 OK

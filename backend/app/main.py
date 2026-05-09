@@ -1,7 +1,7 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.app.api import routes
-from backend.app.database.session import engine, Base
+from .api import routes
+from .database.session import engine, Base
 
 # Create DB tables (for dev). In production use migrations (alembic).
 Base.metadata.create_all(bind=engine)
@@ -16,6 +16,20 @@ app.add_middleware(
 )
 
 app.include_router(routes.router)
+
+# Initialize scheduler on startup if enabled
+from .services import scheduler_service
+
+
+@app.on_event('startup')
+def startup_event():
+    try:
+        scheduler_service.init_scheduler(app)
+    except Exception:
+        # Scheduler is optional; log and continue
+        import logging
+        logging.exception('Failed to initialize scheduler')
+
 
 @app.get('/health')
 async def health():

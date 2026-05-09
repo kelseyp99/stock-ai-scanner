@@ -1,9 +1,14 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  plugins: [react()],
+  // Avoid automatic React injection; source files already import React.
   server: {
-    port: 5173,
-  }
+    port: 5176,
+    host: true,
+    hmr: {
+      protocol: 'ws',
+      host: 'localhost',
+      port: 5176,
+    },
+  },
 })
