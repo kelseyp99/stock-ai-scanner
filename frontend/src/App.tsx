@@ -15,7 +15,7 @@ export default function App(){
   return (
     <>
       {/* Header — scrolls away naturally */}
-      <div>
+      <div style={{paddingTop: 10}}>
         <header style={{display:'flex', alignItems:'center', justifyContent:'space-between', height: headerHeight, padding: '0 24px', marginBottom:0, overflow:'visible', position:'relative'}}>
           <div style={{display:'flex', alignItems:'center', position:'relative', height: '100%'}}>
             <div style={{display:'inline-block', marginRight:16, position:'relative', zIndex:1}}>

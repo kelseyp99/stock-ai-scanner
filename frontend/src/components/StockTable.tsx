@@ -132,6 +132,30 @@ function MAConvCell({ label, dir }: { label?: string | null; dir?: string | null
   )
 }
 
+// ── Static company name lookup ────────────────────────────────────────────────
+const COMPANY_NAMES: Record<string, string> = {
+  AAPL: 'Apple Inc.', MSFT: 'Microsoft Corp.', GOOGL: 'Alphabet Inc.', AMZN: 'Amazon.com Inc.',
+  NVDA: 'NVIDIA Corp.', META: 'Meta Platforms Inc.', TSLA: 'Tesla Inc.', AMD: 'Advanced Micro Devices',
+  INTC: 'Intel Corp.', CSCO: 'Cisco Systems Inc.', ORCL: 'Oracle Corp.', IBM: 'IBM Corp.',
+  QCOM: 'Qualcomm Inc.', TXN: 'Texas Instruments Inc.', AVGO: 'Broadcom Inc.',
+  NFLX: 'Netflix Inc.', DIS: 'Walt Disney Co.', PYPL: 'PayPal Holdings Inc.',
+  JPM: 'JPMorgan Chase & Co.', BAC: 'Bank of America Corp.', WFC: 'Wells Fargo & Co.',
+  GS: 'Goldman Sachs Group', MS: 'Morgan Stanley', C: 'Citigroup Inc.',
+  XOM: 'Exxon Mobil Corp.', CVX: 'Chevron Corp.', COP: 'ConocoPhillips',
+  JNJ: 'Johnson & Johnson', PFE: 'Pfizer Inc.', MRK: 'Merck & Co.',
+  UNH: 'UnitedHealth Group', ABBV: 'AbbVie Inc.', LLY: 'Eli Lilly and Co.',
+  WMT: 'Walmart Inc.', COST: 'Costco Wholesale Corp.', HD: 'Home Depot Inc.',
+  SPY: 'SPDR S&P 500 ETF', QQQ: 'Invesco QQQ Trust', IWM: 'iShares Russell 2000 ETF',
+  SPCE: 'Virgin Galactic Holdings', PLTR: 'Palantir Technologies', SOFI: 'SoFi Technologies',
+  RIVN: 'Rivian Automotive', LCID: 'Lucid Group', NIO: 'NIO Inc.',
+  MSTR: 'MicroStrategy Inc.', COIN: 'Coinbase Global Inc.',
+  F: 'Ford Motor Co.', GM: 'General Motors Co.',
+  BA: 'Boeing Co.', LMT: 'Lockheed Martin Corp.', RTX: 'RTX Corp.',
+  GE: 'GE Aerospace', CAT: 'Caterpillar Inc.',
+  T: 'AT&T Inc.', VZ: 'Verizon Communications',
+  V: 'Visa Inc.', MA: 'Mastercard Inc.', AXP: 'American Express Co.',
+}
+
 function TH({ label, k, sortKey, onSort }: { label: string; k: string; sortKey: string; onSort: (k: string) => void }) {
   return (
     <th
@@ -214,7 +238,10 @@ export default function StockTable({ data }: { data: any[] }) {
                 className={`${rowBg} ${leftBorder} hover:bg-blue-50 transition-colors duration-100 group`}
               >
                 <td className="px-4 py-2.5 font-extrabold text-slate-800 whitespace-nowrap">
-                  <span className="group-hover:text-blue-700 transition-colors">{row.ticker}</span>
+                  <span
+                    title={COMPANY_NAMES[row.ticker] ?? row.name ?? row.long_name ?? row.company_name ?? row.ticker}
+                    className="group-hover:text-blue-700 transition-colors cursor-help"
+                  >{row.ticker}</span>
                   {isSpeculative && <span className="ml-1 text-xs text-pink-500">🎲</span>}
                   {isHot && <span className="ml-1 text-xs">🔥</span>}
                 </td>
