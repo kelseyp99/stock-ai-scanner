@@ -61,7 +61,7 @@ export default function Dashboard() {
     <div className="p-4 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">ThetaForge</h2>
+        <h2 className="sr-only">ThetaForge</h2>
         <div className="flex items-center gap-3">
           {totalScanned > 0 && (
             <span className="text-sm text-gray-500">{totalScanned} tickers scanned</span>
