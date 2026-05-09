@@ -5,6 +5,7 @@ import History from './pages/History'
 import Settings from './pages/Settings'
 import OptionsLab from './pages/OptionsLab'
 import Banner from './components/Banner'
+import AdminScheduler from './pages/AdminScheduler'
 
 export default function App(){
   const [view, setView] = React.useState('dashboard')
@@ -39,6 +40,8 @@ export default function App(){
               <button onClick={()=>setView('history')} className="mr-2">History</button>
               <button onClick={()=>setView('settings')} className="mr-2">Settings</button>
               <button onClick={()=>setView('options')}>Options Lab</button>
+              {/* admin nav */}
+              {true && <button onClick={()=>setView('admin')} className="ml-2">Admin</button>}
             </nav>
           </div>
         </header>
@@ -55,6 +58,7 @@ export default function App(){
           {view === 'history' && <History />}
           {view === 'settings' && <Settings />}
           {view === 'options' && <OptionsLab />}
+          {view === 'admin' && <AdminScheduler />}
         </main>
       </div>
     </>
