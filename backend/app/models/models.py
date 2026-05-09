@@ -106,7 +106,9 @@ class SchedulerSetting(Base):
     enabled = Column(Integer, default=0)  # 0/1 stored as int for compatibility
     scan_time = Column(String(16), nullable=False, default='02:00')
     timezone = Column(String(64), nullable=False, default='America/New_York')
-    universe_id = Column(String(64), nullable=True)
+    universe_id = Column(String(64), nullable=True)   # legacy single-universe field
+    universe_ids = Column(Text, nullable=True)         # JSON list e.g. '["sp500","nasdaq100"]'
+    weekdays_only = Column(Integer, default=1)         # 1 = Mon-Fri only; 0 = run every day
     max_tickers = Column(Integer, nullable=True)
     fetch_news = Column(Integer, default=0)
     generate_ai_summary = Column(Integer, default=0)

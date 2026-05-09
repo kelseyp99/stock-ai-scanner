@@ -1,0 +1,73 @@
+name: Nightly Options Demo Refresh
+
+on:
+  schedule:
+    - cron: '0 4 * * 1-5'   # 4:00 AM UTC = midnight ET, weekdays only
+  workflow_dispatch:          # allow manual trigger from GitHub UI
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write         # needed to commit the updated data file
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install yfinance pandas numpy
+
+      - name: Fetch option chains and regenerate demo data
+        run: python scripts/generate_options_demo.py
+
+      - name: Check for changes
+        id: diff
+        run: |
+          git diff --quiet frontend/src/data/demoOptionsData.ts \
+            && echo "changed=false" >> $GITHUB_OUTPUT \
+            || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit updated demo data
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add frontend/src/data/demoOptionsData.ts
+          git commit -m "chore: nightly options demo refresh $(date -u '+%Y-%m-%d')"
+          git push origin develop
+
+      - name: Set up Node.js
+        if: steps.diff.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        if: steps.diff.outputs.changed == 'true'
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build demo bundle
+        if: steps.diff.outputs.changed == 'true'
+        run: npm run build:demo
+        working-directory: frontend
+
+      - name: Deploy to Firebase Hosting
+        if: steps.diff.outputs.changed == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: thetaforge-35430

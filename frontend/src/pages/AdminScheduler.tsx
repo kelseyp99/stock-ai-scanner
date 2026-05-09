@@ -8,10 +8,18 @@ const db = getFirestore()
 
 const AVAILABLE_INDEXES = ['SP500','NASDAQ100','RUSSELL2000','CUSTOM1']
 
+// Map frontend labels to backend universe IDs
+const INDEX_TO_UNIVERSE: Record<string,string> = {
+  SP500: 'sp500', NASDAQ100: 'nasdaq100', RUSSELL2000: 'russell2000', CUSTOM1: 'custom'
+}
+
+const APPROX_COUNTS: Record<string,number> = { SP500: 500, NASDAQ100: 100, RUSSELL2000: 2000, CUSTOM1: 50 }
+
 export default function AdminScheduler(){
   const [selected, setSelected] = React.useState<string[]>([])
   const [time, setTime] = React.useState('02:00')
-  const [tz, setTz] = React.useState('UTC')
+  const [tz, setTz] = React.useState('America/New_York')
+  const [weekdaysOnly, setWeekdaysOnly] = React.useState(true)
   const [schedules, setSchedules] = React.useState<any[]>([])
 
   React.useEffect(()=>{
@@ -28,15 +36,22 @@ export default function AdminScheduler(){
   }
 
   const save = async ()=>{
+    if (selected.length === 0) return
+    const universeIds = selected.map(idx => INDEX_TO_UNIVERSE[idx])
+    const approxTotal = selected.reduce((sum, idx) => sum + (APPROX_COUNTS[idx] ?? 0), 0)
     await addDoc(collection(db, 'scan_schedules'), {
       indexes: selected,
+      universe_ids: universeIds,
+      approx_tickers: approxTotal,
       time,
       timezone: tz,
+      weekdays_only: weekdaysOnly,
       enabled: true,
       createdBy: 'admin',
       updatedAt: serverTimestamp()
     })
     setSelected([])
+    setWeekdaysOnly(true)
   }
 
   const toggleEnabled = async (id: string, enabled: boolean)=>{
@@ -51,25 +66,48 @@ export default function AdminScheduler(){
     <div className="p-6">
       <h2 className="text-lg font-semibold mb-4">Admin Scheduler</h2>
       <div className="bg-white p-4 rounded shadow mb-4">
-        <div className="mb-2">Select indexes to scan:</div>
-        <div className="flex gap-3 mb-3">
-          {AVAILABLE_INDEXES.map(i=> (
-            <label key={i} className="inline-flex items-center gap-2">
+        <div className="mb-2 font-medium">Select universes to scan:</div>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          {AVAILABLE_INDEXES.map(i => (
+            <label key={i} className={`flex items-center gap-2 p-2 rounded border cursor-pointer ${selected.includes(i) ? 'bg-blue-50 border-blue-400' : 'bg-gray-50 border-gray-200'}`}>
               <input type="checkbox" checked={selected.includes(i)} onChange={()=>toggleIndex(i)} />
               <span>{i}</span>
+              <span className="ml-auto text-xs text-gray-400">~{APPROX_COUNTS[i].toLocaleString()}</span>
             </label>
           ))}
         </div>
+        {selected.length > 0 && (
+          <div className="text-xs text-blue-700 mb-3">
+            Total: ~{selected.reduce((s,i)=>s+(APPROX_COUNTS[i]??0),0).toLocaleString()} tickers
+          </div>
+        )}
+
+        {/* Weekdays only */}
+        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={weekdaysOnly} onChange={e=>setWeekdaysOnly(e.target.checked)} />
+            <span className="font-medium text-sm">Run weekdays only (Mon – Fri, when US market is open)</span>
+          </label>
+          <p className="text-xs text-gray-500 mt-1 ml-5">Skips Saturday and Sunday automatically.</p>
+        </div>
+
         <div className="mb-3">
-          <label className="block mb-1">Time (HH:MM):</label>
+          <label className="block mb-1 text-sm font-medium">Time (HH:MM):</label>
           <input type="time" value={time} onChange={e=>setTime(e.target.value)} className="border px-2 py-1 rounded" />
         </div>
         <div className="mb-3">
-          <label className="block mb-1">Timezone (IANA):</label>
-          <input value={tz} onChange={e=>setTz(e.target.value)} className="border px-2 py-1 rounded" />
+          <label className="block mb-1 text-sm font-medium">Timezone:</label>
+          <select value={tz} onChange={e=>setTz(e.target.value)} className="border px-2 py-1 rounded">
+            <option value="America/New_York">America/New_York (ET)</option>
+            <option value="America/Chicago">America/Chicago (CT)</option>
+            <option value="America/Los_Angeles">America/Los_Angeles (PT)</option>
+            <option value="UTC">UTC</option>
+          </select>
         </div>
         <div>
-          <button onClick={save} className="px-4 py-2 bg-blue-600 text-white rounded">Save Schedule</button>
+          <button onClick={save} disabled={selected.length === 0} className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50">
+            Save Schedule
+          </button>
         </div>
       </div>
 
@@ -80,14 +118,22 @@ export default function AdminScheduler(){
             <div key={s.id} className="flex items-center justify-between bg-white p-3 rounded shadow">
               <div>
                 <div className="font-semibold">{s.indexes?.join(', ')}</div>
-                <div className="text-sm text-gray-500">{s.time} {s.timezone} — {s.enabled ? 'enabled' : 'disabled'}</div>
+                <div className="text-sm text-gray-500">
+                  {s.time} {s.timezone}
+                  {s.weekdays_only ? ' · Mon–Fri only' : ' · every day'}
+                  {s.approx_tickers ? ` · ~${s.approx_tickers.toLocaleString()} tickers` : ''}
+                  {' — '}{s.enabled ? '✅ enabled' : '⏸ disabled'}
+                </div>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={()=>toggleEnabled(s.id, s.enabled)} className="px-3 py-1 rounded border">{s.enabled ? 'Disable' : 'Enable'}</button>
-                <button onClick={()=>remove(s.id)} className="px-3 py-1 rounded border text-red-600">Delete</button>
+                <button onClick={()=>toggleEnabled(s.id, s.enabled)} className="px-3 py-1 rounded border text-sm">
+                  {s.enabled ? 'Disable' : 'Enable'}
+                </button>
+                <button onClick={()=>remove(s.id)} className="px-3 py-1 rounded border text-red-600 text-sm">Delete</button>
               </div>
             </div>
           ))}
+          {schedules.length === 0 && <div className="text-sm text-gray-400">No schedules yet.</div>}
         </div>
       </div>
     </div>

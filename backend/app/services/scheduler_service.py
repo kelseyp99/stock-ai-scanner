@@ -29,10 +29,33 @@ _running_users: dict[str, bool] = {}
 _current_running_count = 0
 
 
-def _to_cron_time(scan_time: str, tz: str) -> CronTrigger:
-    """Convert HH:MM string and timezone into a CronTrigger (UTC conversion handled by APScheduler)."""
+def _to_cron_time(scan_time: str, tz: str, weekdays_only: bool = True) -> CronTrigger:
+    """Convert HH:MM string and timezone into a CronTrigger.
+    When weekdays_only=True the job runs Mon-Fri only (skips Sat/Sun)."""
     hh, mm = (scan_time or '02:00').split(':')
-    return CronTrigger(hour=int(hh), minute=int(mm), timezone=tz)
+    dow = 'mon-fri' if weekdays_only else '*'
+    return CronTrigger(hour=int(hh), minute=int(mm), day_of_week=dow, timezone=tz)
+
+
+def _resolve_universe_ids(s: models.SchedulerSetting) -> list[str]:
+    """Return the list of universe IDs to scan for a setting.
+    Prefers the new universe_ids JSON field; falls back to the legacy universe_id string."""
+    import json
+    if s.universe_ids:
+        try:
+            ids = json.loads(s.universe_ids)
+            if ids:
+                return ids
+        except Exception:
+            pass
+    if s.universe_id:
+        return [s.universe_id]
+    return []
+
+
+def _is_market_day() -> bool:
+    """Return True if today is Monday-Friday (US market weekday)."""
+    return datetime.utcnow().weekday() < 5  # 0=Mon … 4=Fri
 
 
 def load_scheduler_settings(db: Session):
@@ -73,9 +96,11 @@ def schedule_user_scan(s: models.SchedulerSetting, db: Session):
     if scheduler.get_job(job_id):
         scheduler.remove_job(job_id)
 
-    trigger = _to_cron_time(s.scan_time, s.timezone)
+    weekdays_only = bool(s.weekdays_only) if s.weekdays_only is not None else True
+    trigger = _to_cron_time(s.scan_time, s.timezone, weekdays_only)
     scheduler.add_job(lambda: run_scheduled_scan(s.id), trigger, id=job_id, replace_existing=True)
-    logger.info('Scheduled job %s at %s %s', job_id, s.scan_time, s.timezone)
+    days_label = 'Mon-Fri' if weekdays_only else 'daily'
+    logger.info('Scheduled job %s at %s %s (%s)', job_id, s.scan_time, s.timezone, days_label)
 
 
 def reschedule_user_scan(s: models.SchedulerSetting, db: Session):
@@ -186,10 +211,31 @@ def run_scheduled_scan(setting_id: int, scheduled_run_id: Optional[int] = None):
             db.refresh(run)
 
         try:
-            # Determine tickers
-            tickers = []
-            if s.universe_id:
-                tickers = get_universe_tickers(s.universe_id, db)
+            # Determine tickers — support multiple universes
+            universe_ids = _resolve_universe_ids(s)
+            tickers_seen: set[str] = set()
+            tickers: list[str] = []
+            for uid in universe_ids:
+                try:
+                    for t in get_universe_tickers(uid, db):
+                        if t not in tickers_seen:
+                            tickers_seen.add(t)
+                            tickers.append(t)
+                except Exception as e:
+                    logger.warning('Failed to fetch universe %s: %s', uid, e)
+
+            # Weekend guard — extra safety net even when cron is configured correctly
+            weekdays_only = bool(s.weekdays_only) if s.weekdays_only is not None else True
+            if weekdays_only and not _is_market_day():
+                logger.info('Skipping scan for setting %s — weekdays_only=True and today is a weekend', s.id)
+                run.status = 'skipped'
+                run.completed_at = datetime.utcnow()
+                run.error_message = 'Skipped: weekdays_only is enabled and today is a weekend'
+                db.add(run)
+                db.commit()
+                _release_user_lock(s.user_id)
+                return
+
             if s.max_tickers:
                 tickers = tickers[: s.max_tickers]
 

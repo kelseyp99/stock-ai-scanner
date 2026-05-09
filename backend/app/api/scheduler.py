@@ -1,10 +1,11 @@
 """
 API endpoints for scheduler settings and status.
 """
+import json
 from fastapi import APIRouter, Depends, HTTPException, Body
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from sqlalchemy.orm import Session
 
@@ -24,6 +25,8 @@ class SchedulerSettingsIn(BaseModel):
     scan_time: str = '02:00'
     timezone: str = 'America/New_York'
     universe_id: Optional[str] = None
+    universe_ids: Optional[list] = None   # list of universe id strings
+    weekdays_only: bool = True            # run Mon-Fri only
     max_tickers: Optional[int] = None
     fetch_news: bool = False
     generate_ai_summary: bool = False
@@ -33,6 +36,8 @@ class SchedulerSettingsIn(BaseModel):
 
 class SchedulerSettingsOut(SchedulerSettingsIn):
     id: int
+    universe_ids: Optional[List] = []
+    weekdays_only: bool = True
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
     next_run: Optional[str] = None
@@ -69,6 +74,8 @@ def get_settings(user_id: Optional[str] = None, db: Session = Depends(get_db)):
             'scan_time': s.scan_time,
             'timezone': s.timezone,
             'universe_id': s.universe_id,
+            'universe_ids': json.loads(s.universe_ids) if s.universe_ids else [],
+            'weekdays_only': bool(s.weekdays_only) if s.weekdays_only is not None else True,
             'max_tickers': s.max_tickers,
             'fetch_news': bool(s.fetch_news),
             'generate_ai_summary': bool(s.generate_ai_summary),
@@ -89,6 +96,10 @@ def save_settings(item: SchedulerSettingsIn, db: Session = Depends(get_db)):
     data['enabled'] = 1 if data.get('enabled') else 0
     data['fetch_news'] = 1 if data.get('fetch_news') else 0
     data['generate_ai_summary'] = 1 if data.get('generate_ai_summary') else 0
+    data['weekdays_only'] = 1 if data.get('weekdays_only') else 0
+    # Serialize universe_ids list to JSON string
+    if data.get('universe_ids') is not None:
+        data['universe_ids'] = json.dumps(data['universe_ids'])
     s = scheduler_service.save_scheduler_settings(db, data)
     # Return enriched single object for this setting
     settings_list = get_settings(user_id=s.user_id, db=db)
@@ -158,6 +169,8 @@ def get_setting_by_id(setting_id: int, db: Session = Depends(get_db)):
         'scan_time': s.scan_time,
         'timezone': s.timezone,
         'universe_id': s.universe_id,
+        'universe_ids': json.loads(s.universe_ids) if s.universe_ids else [],
+        'weekdays_only': bool(s.weekdays_only) if s.weekdays_only is not None else True,
         'max_tickers': s.max_tickers,
         'fetch_news': bool(s.fetch_news),
         'generate_ai_summary': bool(s.generate_ai_summary),

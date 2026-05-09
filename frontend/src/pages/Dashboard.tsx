@@ -39,15 +39,22 @@ export default function Dashboard() {
     if (DEMO_MODE) return
     setLoading(true)
     setError(null)
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), 30000)
     try {
-      const res = await api.get('/scan/grouped')
+      const res = await api.get('/scan/grouped', { signal: controller.signal })
       setTopRanked(res.data.top_ranked ?? [])
       setByCategory(res.data.by_category ?? {})
       setSummary(res.data.summary ?? '')
       setTotalScanned(res.data.total_scanned ?? 0)
     } catch (e: any) {
-      setError(e.message)
+      if (e?.name === 'AbortError' || e?.code === 'ERR_CANCELED') {
+        setError('Scan timed out after 30s — backend may still be processing.')
+      } else {
+        setError(e.message)
+      }
     } finally {
+      window.clearTimeout(timeout)
       setLoading(false)
     }
   }
