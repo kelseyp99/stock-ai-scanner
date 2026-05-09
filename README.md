@@ -29,3 +29,36 @@ Roadmap:
 
 Comments:
 - Authentication is handled by Firebase (client-side). Scan results and history are stored in MySQL.
+
+## Static Firebase demo deployment
+
+To build a static demo of the frontend for Firebase Hosting (uses static demo data):
+
+1. Build demo bundle
+
+```bash
+cd frontend
+npm install
+npm run build:demo
+```
+
+2. Initialize Firebase Hosting (if you haven't already)
+
+```bash
+cd ..
+firebase login
+firebase init hosting
+# when prompted, choose the 'frontend/dist' directory as the public folder
+# choose Single Page App: Yes
+# do NOT overwrite firebase.json if it already exists unless you want to replace it
+```
+
+3. Deploy
+
+```bash
+firebase deploy --only hosting
+```
+
+Notes:
+- The demo build reads `VITE_DEMO_MODE=true` from `.env.demo` and uses local static JSON data.
+- The demo site will not call your live backend and will display a static scan and summary.

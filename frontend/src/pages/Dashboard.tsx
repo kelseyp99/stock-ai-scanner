@@ -2,6 +2,8 @@ import React from 'react'
 import api from '../services/api'
 import StockTable from '../components/StockTable'
 
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true'
+
 const CATEGORY_ORDER = [
   'Momentum',
   'Breakout Volume',
@@ -14,13 +16,27 @@ const CATEGORY_ORDER = [
 
 export default function Dashboard() {
   const [topRanked, setTopRanked] = React.useState<any[]>([])
-  const [byCategory, setByCategory] = React.useState<Record<string, any[]>>({})
+  const [byCategory, setByCategory] = React.useState<Record<string, any>>({})
   const [summary, setSummary] = React.useState<string>('')
   const [totalScanned, setTotalScanned] = React.useState<number>(0)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
+  const loadDemo = async () => {
+    try {
+      const mod = await import('../data/demoScanResults')
+      const d = mod.default
+      setTopRanked(d.top_ranked)
+      setByCategory(d.by_category)
+      setSummary(d.summary)
+      setTotalScanned(d.total_scanned)
+    } catch (e: any) {
+      setError('Failed to load demo data')
+    }
+  }
+
   const refresh = async () => {
+    if (DEMO_MODE) return
     setLoading(true)
     setError(null)
     try {
@@ -36,7 +52,10 @@ export default function Dashboard() {
     }
   }
 
-  React.useEffect(() => { refresh() }, [])
+  React.useEffect(() => {
+    if (DEMO_MODE) loadDemo()
+    else refresh()
+  }, [])
 
   return (
     <div className="p-4 space-y-6">
@@ -47,13 +66,18 @@ export default function Dashboard() {
           {totalScanned > 0 && (
             <span className="text-sm text-gray-500">{totalScanned} tickers scanned</span>
           )}
-          <button
-            onClick={refresh}
-            disabled={loading}
-            className="px-4 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
-          >
-            {loading ? 'Scanning…' : 'Refresh'}
-          </button>
+          {!DEMO_MODE && (
+            <button
+              onClick={refresh}
+              disabled={loading}
+              className="px-4 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
+            >
+              {loading ? 'Scanning…' : 'Refresh'}
+            </button>
+          )}
+          {DEMO_MODE && (
+            <span className="text-xs text-gray-500 italic">Static Demo Mode</span>
+          )}
         </div>
       </div>
 

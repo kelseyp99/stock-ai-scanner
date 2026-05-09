@@ -1,5 +1,6 @@
 import React, {useState} from 'react'
 import OptionChainViewer from '../components/OptionChainViewer'
+import IvHvChart from '../components/IvHvChart'
 
 export default function OptionsLab(){
   const [ticker, setTicker] = useState('AAPL')
@@ -46,6 +47,8 @@ export default function OptionsLab(){
     }finally{setLoading(false)}
   }
 
+  const expectedMove = chain && chain.current_price && chain.iv_atm ? (chain.current_price * (chain.iv_atm || 0) * Math.sqrt(30/365)) : null
+
   return (
     <div className="p-4">
       <h2 className="text-2xl font-bold mb-4">Options Lab</h2>
@@ -56,6 +59,14 @@ export default function OptionsLab(){
         <button className="bg-indigo-600 text-white px-3 py-1" onClick={analyze}>Analyze (AI)</button>
       </div>
       <OptionChainViewer chain={chain} />
+      <div className="mt-4 grid grid-cols-2 gap-4">
+        <IvHvChart price={chain?.current_price} iv={chain?.iv_atm} hv30={chain?.historical_volatility?.hv30} hv90={chain?.historical_volatility?.hv90} expectedMove={expectedMove} />
+        <div className="p-2 bg-white rounded border">
+          <div className="text-sm font-medium mb-1">Expected Move</div>
+          <div className="text-lg font-semibold">{expectedMove ? ((Math.round(expectedMove*100)/100)+'') : '—'}</div>
+          <div className="text-xs text-gray-500">(approx, 30d, based on ATM IV)</div>
+        </div>
+      </div>
       <div className="mt-4">
         <h3 className="font-semibold">Suggested strategies</h3>
         {strategies.length ? strategies.map((s:any, idx:number)=> (
