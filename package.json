@@ -1,0 +1,9 @@
+{
+  "name": "stock-ai-scanner",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build:demo": "cd frontend && npm ci && npm run build:demo",
+    "deploy:firebase": "cd frontend && firebase deploy --only hosting"
+  }
+}
