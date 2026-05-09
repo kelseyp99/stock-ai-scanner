@@ -4,6 +4,7 @@ import Watchlist from './pages/Watchlist'
 import History from './pages/History'
 import Settings from './pages/Settings'
 import OptionsLab from './pages/OptionsLab'
+import About from './pages/About'
 
 export default function App(){
   const [view, setView] = React.useState('dashboard')
@@ -36,7 +37,8 @@ export default function App(){
             <button onClick={()=>setView('watchlist')} className="mr-2">Watchlist</button>
             <button onClick={()=>setView('history')} className="mr-2">History</button>
             <button onClick={()=>setView('settings')} className="mr-2">Settings</button>
-            <button onClick={()=>setView('options')}>Options Lab</button>
+            <button onClick={()=>setView('options')} className="mr-2">Options Lab</button>
+            <button onClick={()=>setView('about')}>About</button>
           </nav>
         </div>
       </header>
@@ -47,6 +49,7 @@ export default function App(){
         {view === 'history' && <History />}
         {view === 'settings' && <Settings />}
         {view === 'options' && <OptionsLab />}
+        {view === 'about' && <About />}
       </main>
     </div>
   )
