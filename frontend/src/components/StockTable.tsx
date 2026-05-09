@@ -174,9 +174,12 @@ export default function StockTable({ data }: { data: any[] }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl shadow-lg border border-slate-200">
-      <table className="min-w-full text-sm">
-        <thead className="bg-slate-800 sticky top-0 z-10">
+    <div
+      className="rounded-xl shadow-lg border border-slate-200"
+      style={{overflow: 'auto', maxHeight: 420}}
+    >
+      <table className="min-w-full text-sm" style={{borderCollapse:'collapse'}}>
+        <thead className="bg-slate-800" style={{position:'sticky', top: 0, zIndex: 9}}>
           <tr>
             <th className="px-4 py-3 text-left text-xs font-bold text-slate-300 uppercase tracking-wider">Ticker</th>
             <TH label="Price"      k="price"                  sortKey={sortKey} onSort={setSortKey} />

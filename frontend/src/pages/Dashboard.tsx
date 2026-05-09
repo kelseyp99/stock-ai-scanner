@@ -95,15 +95,37 @@ export default function Dashboard() {
       )}
 
       {/* Top Ranked Table */}
-      <section>
-        <h3 className="text-lg font-semibold text-gray-700 mb-2">🏆 Top Ranked</h3>
+      <section style={{position:'relative'}}>
+        <h3
+          className="text-lg font-semibold text-gray-700 mb-2"
+          style={{
+            position: 'sticky',
+            top: 80,
+            zIndex: 10,
+            background: '#f9fafb',
+            padding: '6px 8px',
+            borderRadius: 6,
+            boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+          }}
+        >🏆 Top Ranked</h3>
         <StockTable data={topRanked} />
       </section>
 
       {/* By Category */}
       {CATEGORY_ORDER.filter(cat => byCategory[cat]?.length > 0).map(cat => (
-        <section key={cat}>
-          <h3 className="text-lg font-semibold text-gray-700 mb-2">
+        <section key={cat} style={{position:'relative'}}>
+          <h3
+            className="text-lg font-semibold text-gray-700 mb-2"
+            style={{
+              position: 'sticky',
+              top: 80,
+              zIndex: 10,
+              background: '#f9fafb',
+              padding: '6px 8px',
+              borderRadius: 6,
+              boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+            }}
+          >
             {categoryIcon(cat)} {cat}
           </h3>
           <StockTable data={byCategory[cat].slice(0, 5)} />
