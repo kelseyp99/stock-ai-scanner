@@ -1,6 +1,6 @@
 {
-  "name": "stock-ai-scanner-frontend",
-  "version": "0.0.1",
+  "name": "theta-forge-frontend",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "vite",
@@ -9,8 +9,8 @@
     "build:demo": "vite build --mode demo"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
     "axios": "^1.4.0",
     "firebase": "^9.22.0",
     "chart.js": "^4.3.0",

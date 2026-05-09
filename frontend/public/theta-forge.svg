@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="64" viewBox="0 0 240 64">
+  <defs>
+    <linearGradient id="g1" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#2FA6FF"/>
+      <stop offset="100%" stop-color="#FF8A00"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="64" fill="none" />
+  <g transform="translate(8,4)">
+    <circle cx="28" cy="28" r="24" fill="url(#g1)" />
+    <path d="M20 34 L28 18 L36 34 Z" fill="#fff" opacity="0.95" />
+    <text x="64" y="38" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="24" font-weight="700" fill="#222">Theta</text>
+    <text x="140" y="38" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="24" font-weight="700" fill="#FF8A00">Forge</text>
+  </g>
+</svg>
