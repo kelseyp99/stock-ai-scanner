@@ -2,8 +2,10 @@
   "name": "stock-ai-scanner",
   "version": "0.1.0",
   "private": true,
+  "projectLabel": "stock-ai-scanner",
   "scripts": {
     "build:demo": "cd frontend && npm ci && npm run build:demo",
-    "deploy:firebase": "cd frontend && firebase deploy --only hosting"
+    "deploy:firebase": "cd frontend && firebase deploy --only hosting",
+    "backup:manual": "bash Backups/Scripts/manual_backup.sh"
   }
 }
