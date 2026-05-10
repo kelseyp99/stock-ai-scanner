@@ -7,3 +7,4 @@ yfinance
 python-dotenv
 pydantic
 alembic
+requests>=2.31.0

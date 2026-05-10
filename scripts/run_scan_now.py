@@ -1,0 +1,231 @@
+#!/usr/bin/env python3
+"""
+run_scan_now.py — Manually trigger the nightly scanner from the command line.
+
+Usage:
+    python scripts/run_scan_now.py                         # quick: 50/universe
+    python scripts/run_scan_now.py --full                  # full: S&P 500 + Nasdaq 100 + Russell 2000 (all tickers)
+    python scripts/run_scan_now.py --universes sp500 nasdaq100 russell2000 --max 50
+
+Universes: sp500, sp100, dow30, nasdaq100, russell1000, russell2000, russell3000
+
+Full-universe ticker counts (approximate):
+  sp500       ~505
+  nasdaq100   ~101
+  russell2000 ~1920
+  TOTAL       ~2526  (expect ~15-25 min with --workers 20)
+"""
+
+import sys
+import os
+import json
+import argparse
+import time
+import logging
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
+# ── Path setup: allow imports from backend/app ────────────────────────────────
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / 'backend'))
+
+from app.services.scanner import scan_ticker
+from app.services.index_universe_service import get_universe_tickers
+from app.services.ai_summary_service import generate_scan_summary
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+# force=True overrides any root-logger config set by yfinance on import
+logging.basicConfig(
+    force=True,
+    level=logging.INFO,
+    format='%(asctime)s  %(levelname)-8s %(message)s',
+    datefmt='%H:%M:%S',
+)
+
+# Silence noisy yfinance/urllib3 retry chatter (401 crumb retries etc.)
+for _noisy in ('yfinance', 'peewee', 'urllib3', 'urllib3.connectionpool', 'requests'):
+    logging.getLogger(_noisy).setLevel(logging.CRITICAL)
+log = logging.getLogger('run_scan_now')
+
+# ── Defaults ──────────────────────────────────────────────────────────────────
+DEFAULT_UNIVERSES = ['sp500', 'nasdaq100', 'russell2000']
+DEFAULT_MAX       = 50    # max tickers per universe in quick mode
+FULL_MAX          = 9999  # effectively unlimited — scans every ticker in universe
+OUTPUT_FILE       = ROOT / 'scan_results_latest.json'
+
+
+def _sort_results(results: list) -> list:
+    return sorted(
+        results,
+        key=lambda r: (
+            -(r.get('score') or 0),
+            -(r.get('volume_ratio') or 0),
+            -(r.get('volatility') or 0),
+        )
+    )
+
+
+def scan_universe(universe_id: str, max_tickers: int, max_workers: int = 12) -> list:
+    """Fetch universe tickers and scan them in parallel."""
+    log.info(f'[{universe_id}] Fetching tickers…')
+    tickers = get_universe_tickers(universe_id)
+    if not tickers:
+        log.warning(f'[{universe_id}] No tickers returned — skipping.')
+        return []
+
+    tickers = tickers[:max_tickers]
+    log.info(f'[{universe_id}] Scanning {len(tickers)} tickers with {max_workers} workers…')
+
+    results = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(scan_ticker, t, 120): t for t in tickers}
+        done = 0
+        for future in as_completed(futures):
+            done += 1
+            ticker = futures[future]
+            try:
+                r = future.result()
+                if r:
+                    r['universe'] = universe_id
+                    results.append(r)
+            except Exception as exc:
+                log.debug(f'[{universe_id}] {ticker} error: {exc}')
+            if done % 25 == 0 or done == len(tickers):
+                log.info(f'[{universe_id}]   {done}/{len(tickers)} scanned, {len(results)} hits so far…')
+
+    log.info(f'[{universe_id}] Done — {len(results)} results.')
+    return results
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Run the stock AI scanner manually.')
+    parser.add_argument(
+        '--universes', nargs='+', default=DEFAULT_UNIVERSES,
+        metavar='UNIVERSE',
+        help=f'Universe IDs to scan (default: {" ".join(DEFAULT_UNIVERSES)})',
+    )
+    parser.add_argument(
+        '--max', type=int, default=None,
+        metavar='N',
+        help=f'Max tickers per universe. Omit to use default ({DEFAULT_MAX}) or --full for all.',
+    )
+    parser.add_argument(
+        '--full', action='store_true',
+        help='Scan every ticker in each universe (S&P 500 + Nasdaq 100 + Russell 2000 = ~2,526 total). '
+             'Expect 15-25 min. Overrides --max.',
+    )
+    parser.add_argument(
+        '--workers', type=int, default=20,
+        metavar='N',
+        help='Thread-pool workers per universe (default: 20; increase for faster full runs)',
+    )
+    parser.add_argument(
+        '--top', type=int, default=25,
+        metavar='N',
+        help='Top N results to include in the summary (default: 25)',
+    )
+    args = parser.parse_args()
+
+    # Resolve max tickers
+    if args.full:
+        max_tickers = FULL_MAX
+        mode = 'FULL (all tickers)'
+    elif args.max is not None:
+        max_tickers = args.max
+        mode = f'capped at {max_tickers}/universe'
+    else:
+        max_tickers = DEFAULT_MAX
+        mode = f'quick ({DEFAULT_MAX}/universe)'
+
+    started_at = datetime.utcnow().isoformat() + 'Z'
+    log.info('═' * 60)
+    log.info(f'Stock AI Scanner — manual run  [{mode}]')
+    log.info(f'Started : {started_at}')
+    log.info(f'Universes: {", ".join(args.universes)}')
+    log.info(f'Max/universe: {"ALL" if args.full else max_tickers}   Workers: {args.workers}   Top: {args.top}')
+    log.info('═' * 60)
+
+    # ── Pre-warm yfinance session / crumb ─────────────────────────────────────
+    log.info('Pre-warming Yahoo Finance session…')
+    try:
+        import yfinance as yf
+        yf.download('SPY', period='2d', progress=False, auto_adjust=True)
+        log.info('Session ready.')
+    except Exception as e:
+        log.warning(f'Session pre-warm failed (will still try): {e}')
+
+    all_results: list = []
+    universe_stats: dict = {}
+
+    for uid in args.universes:
+        t0 = time.time()
+        res = scan_universe(uid, max_tickers, args.workers)
+        elapsed = round(time.time() - t0, 1)
+        sorted_res = _sort_results(res)
+        universe_stats[uid] = {
+            'scanned': len(res),
+            'hits': len(sorted_res),
+            'elapsed_s': elapsed,
+            'top': sorted_res[:args.top],
+        }
+        all_results.extend(sorted_res)
+        log.info(f'[{uid}] Finished in {elapsed}s')
+
+    # ── Global top across all universes ───────────────────────────────────────
+    global_top = _sort_results(all_results)[:args.top]
+
+    log.info('─' * 60)
+    log.info(f'Total results across all universes: {len(all_results)}')
+    log.info(f'Generating AI summary for top {len(global_top)} stocks…')
+
+    try:
+        ai_summary = generate_scan_summary(global_top)
+    except Exception as e:
+        log.warning(f'AI summary failed: {e}')
+        ai_summary = None
+
+    finished_at = datetime.utcnow().isoformat() + 'Z'
+
+    # ── Build output payload ──────────────────────────────────────────────────
+    payload = {
+        'scan_started_at':  started_at,
+        'scan_finished_at': finished_at,
+        'universes_scanned': args.universes,
+        'max_per_universe':  args.max,
+        'total_hits':        len(all_results),
+        'global_top':        global_top,
+        'by_universe':       universe_stats,
+        'ai_summary':        ai_summary,
+    }
+
+    OUTPUT_FILE.write_text(json.dumps(payload, indent=2, default=str))
+    log.info(f'Results saved → {OUTPUT_FILE}')
+
+    # ── Print top picks to console ────────────────────────────────────────────
+    log.info('═' * 60)
+    log.info(f'TOP {len(global_top)} PICKS (all universes)')
+    log.info('─' * 60)
+    for i, r in enumerate(global_top, 1):
+        cats = ', '.join(r.get('categories') or []) or '—'
+        log.info(
+            f'  {i:>2}. {r.get("ticker","?"):<8} '
+            f'score={r.get("score",0):>5.1f}  '
+            f'RSI={r.get("rsi") or "?":>5}  '
+            f'vol_ratio={r.get("volume_ratio") or 0:>4.1f}x  '
+            f'[{r.get("universe","?")}]  {cats}'
+        )
+    log.info('═' * 60)
+
+    if ai_summary:
+        log.info('AI SUMMARY')
+        log.info('─' * 60)
+        for line in ai_summary.splitlines():
+            log.info(f'  {line}')
+        log.info('═' * 60)
+
+    log.info('Scan complete.')
+
+
+if __name__ == '__main__':
+    main()

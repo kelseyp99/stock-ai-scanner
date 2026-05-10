@@ -15,10 +15,27 @@ Constituents are also persisted to MySQL for history / offline use.
 import time
 import os
 import logging
+import io
+import requests
 import pandas as pd
 from pathlib import Path
 from sqlalchemy.orm import Session
 from datetime import datetime
+
+# Wikipedia blocks urllib's default UA; use a browser-like one
+_WIKI_HEADERS = {
+    'User-Agent': (
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/124.0.0.0 Safari/537.36'
+    )
+}
+
+def _wiki_read_html(url: str) -> list:
+    """Fetch a Wikipedia page with a real browser UA and parse its tables."""
+    resp = requests.get(url, headers=_WIKI_HEADERS, timeout=20)
+    resp.raise_for_status()
+    return pd.read_html(io.StringIO(resp.text), header=0)
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +80,7 @@ def _to_cache(universe_id: str, tickers: list[str]) -> None:
 
 def _fetch_sp500() -> list[dict]:
     url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
-    tables = pd.read_html(url, header=0)
+    tables = _wiki_read_html(url)
     df = tables[0]
     records = []
     for _, row in df.iterrows():
@@ -77,7 +94,7 @@ def _fetch_sp500() -> list[dict]:
 
 def _fetch_sp100() -> list[dict]:
     url = 'https://en.wikipedia.org/wiki/S%26P_100'
-    tables = pd.read_html(url, header=0)
+    tables = _wiki_read_html(url)
     # The table with Symbol column
     for df in tables:
         cols = [c.lower() for c in df.columns]
@@ -97,7 +114,7 @@ def _fetch_sp100() -> list[dict]:
 
 def _fetch_dow30() -> list[dict]:
     url = 'https://en.wikipedia.org/wiki/Dow_Jones_Industrial_Average'
-    tables = pd.read_html(url, header=0)
+    tables = _wiki_read_html(url)
     for df in tables:
         cols = [c.lower() for c in df.columns]
         if 'symbol' in cols or 'ticker' in cols:
@@ -116,7 +133,7 @@ def _fetch_dow30() -> list[dict]:
 
 def _fetch_nasdaq100() -> list[dict]:
     url = 'https://en.wikipedia.org/wiki/Nasdaq-100'
-    tables = pd.read_html(url, header=0)
+    tables = _wiki_read_html(url)
     for df in tables:
         cols = [c.lower() for c in df.columns]
         if 'ticker' in cols or 'symbol' in cols:

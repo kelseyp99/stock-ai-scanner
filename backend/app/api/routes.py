@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from fastapi.responses import JSONResponse
 from typing import List
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import json, os, pathlib
 from ..services.scanner import scan_ticker
 from ..services.ai_summary_service import generate_scan_summary
 from ..services.options_chain_service import get_options_chain
@@ -92,6 +93,36 @@ def scan_grouped(sample: int = 50, db: Session = Depends(get_db)):
         'summary':      generate_scan_summary(top_ranked),
         'total_scanned': len(all_results),
     })
+
+_RESULTS_JSON = pathlib.Path(__file__).parents[3] / 'scan_results_latest.json'
+
+@router.get('/scan/latest')
+def scan_latest():
+    """Serve the most recent scan_results_latest.json written by run_scan_now.py."""
+    if not _RESULTS_JSON.exists():
+        raise HTTPException(status_code=404, detail='No scan results yet. Run the scanner first.')
+    with open(_RESULTS_JSON) as f:
+        data = json.load(f)
+    # Normalise key names: run_scan_now.py uses 'global_top', API uses 'top_ranked'
+    if 'global_top' in data and 'top_ranked' not in data:
+        data['top_ranked'] = data['global_top']
+    if 'by_universe' in data and 'by_category' not in data:
+        # Flatten universe results into a category dict keyed by universe name
+        data['by_category'] = {k: v.get('results', v) for k, v in data['by_universe'].items()}
+    data.setdefault('top_ranked', [])
+    data.setdefault('by_category', {})
+    data.setdefault('summary', data.get('ai_summary', ''))
+    data.setdefault('total_scanned', data.get('total_hits', 0))
+    # Deduplicate top_ranked by ticker (same ticker may appear in multiple universes)
+    seen: set = set()
+    deduped = []
+    for item in data['top_ranked']:
+        t = item.get('ticker')
+        if t not in seen:
+            seen.add(t)
+            deduped.append(item)
+    data['top_ranked'] = deduped
+    return JSONResponse(content=data)
 
 @router.get('/scan/debug')
 def scan_all_debug(sample: int = 50, db: Session = Depends(get_db)):

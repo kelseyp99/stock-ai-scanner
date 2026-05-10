@@ -42,7 +42,7 @@ export default function Dashboard() {
     const controller = new AbortController()
     const timeout = window.setTimeout(() => controller.abort(), 30000)
     try {
-      const res = await api.get('/scan/grouped', { signal: controller.signal })
+      const res = await api.get('/scan/latest', { signal: controller.signal })
       setTopRanked(res.data.top_ranked ?? [])
       setByCategory(res.data.by_category ?? {})
       setSummary(res.data.summary ?? '')

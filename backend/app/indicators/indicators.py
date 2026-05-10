@@ -28,3 +28,16 @@ def moving_average(series: pd.Series, period: int):
 def volatility(series: pd.Series, period: int = 20):
     series = _ensure_series(series).astype(float)
     return series.pct_change().rolling(window=period).std() * (252**0.5)
+
+def calculate_atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
+    """Average True Range using Wilder's smoothing (EWM alpha=1/period)."""
+    high  = _ensure_series(high).astype(float)
+    low   = _ensure_series(low).astype(float)
+    close = _ensure_series(close).astype(float)
+    prev_close = close.shift(1)
+    tr = pd.concat([
+        high - low,
+        (high - prev_close).abs(),
+        (low  - prev_close).abs(),
+    ], axis=1).max(axis=1)
+    return tr.ewm(alpha=1 / period, adjust=False).mean()
