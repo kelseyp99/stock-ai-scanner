@@ -162,6 +162,13 @@ def scan_ingest(
     })
 
 
+@router.get('/news/{ticker}')
+def news_for_ticker(ticker: str, max: int = 6, db: Session = Depends(get_db)):
+    """Fetch recent news headlines for a single ticker via yfinance (cached in DB)."""
+    articles = get_news_for_ticker(ticker.upper(), max_articles=max, db=db)
+    return JSONResponse(content={'ticker': ticker.upper(), 'articles': articles})
+
+
 @router.get('/scan/debug')
 def scan_all_debug(sample: int = 50, db: Session = Depends(get_db)):
     """Return raw diagnostic scan results without pydantic response_model validation."""

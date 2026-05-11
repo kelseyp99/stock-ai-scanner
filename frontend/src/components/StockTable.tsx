@@ -80,16 +80,16 @@ const SETUP_QUALITY_CONFIG: Record<string, { cls: string; desc: string }> = {
 // ─────────────────────────────────────────────────────────────────────────────
 // Filters
 // ─────────────────────────────────────────────────────────────────────────────
-const FILTERS: { id: FilterId; label: string; icon: string }[] = [
-  { id: 'all',            label: 'All',         icon: '🔍' },
-  { id: 'momentum',       label: 'Momentum',    icon: '🚀' },
-  { id: 'oversold',       label: 'Oversold',    icon: '💚' },
-  { id: 'mean-reversion', label: 'Mean Rev',    icon: '🔄' },
-  { id: 'squeeze',        label: 'Vol Squeeze', icon: '🌀' },
-  { id: 'dividend',       label: 'Dividend',    icon: '💰' },
-  { id: 'options',        label: 'High Vol',    icon: '⚡' },
-  { id: 'low-vol',        label: 'Low Vol',     icon: '🛡️' },
-  { id: 'extreme',        label: 'Elite Score', icon: '🔥' },
+const FILTERS: { id: FilterId; label: string; icon: string; tip: string }[] = [
+  { id: 'all',            label: 'All',         icon: '🔍', tip: 'Show all scanned stocks sorted by composite score.' },
+  { id: 'momentum',       label: 'Momentum',    icon: '🚀', tip: 'Stocks with strong upward price momentum — RSI above 65 and price above both MA20 and MA50. Best for trend-following and breakout continuation plays.' },
+  { id: 'oversold',       label: 'Oversold',    icon: '💚', tip: 'Stocks with RSI below 35 — they\'ve sold off hard and may be due for a mean-reversion bounce. Higher risk but strong reward-to-risk if timed correctly.' },
+  { id: 'mean-reversion', label: 'Mean Rev',    icon: '🔄', tip: 'Stocks that have pulled back significantly from their average and are set up to snap back. Look for price near or below MA20 with oversold RSI.' },
+  { id: 'squeeze',        label: 'Vol Squeeze', icon: '🌀', tip: 'Volatility Compression — ATR has contracted well below its 20-day average. Like a coiled spring: tight ranges historically precede large directional moves. Direction unknown — wait for the breakout.' },
+  { id: 'dividend',       label: 'Dividend',    icon: '💰', tip: 'Stocks with a dividend yield above 0. Good candidates for covered call income strategies or income-focused buy-and-hold positions.' },
+  { id: 'options',        label: 'High Vol',    icon: '⚡', tip: 'Stocks with ATR% ≥ 3.0 — elevated daily range makes them ideal for options plays (wide premiums, faster moves). Use smaller position sizes.' },
+  { id: 'low-vol',        label: 'Low Vol',     icon: '🛡️', tip: 'Stocks with ATR% below 2.0 — stable, low-volatility movers. Great for covered calls, conservative trend holds, or accounts that need to limit drawdown.' },
+  { id: 'extreme',        label: 'Elite Score', icon: '🔥', tip: 'Only stocks scoring 8 or higher on the composite signal score. Multiple strong signals aligning at once — the highest-conviction setups in the scan.' },
 ]
 
 function applyFilter(data: any[], filter: FilterId): any[] {
@@ -514,7 +514,7 @@ function EducationalPanel({ row }: { row: any }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function StockCard({ row }: { row: any }) {
   const [expanded, setExpanded] = React.useState(false)
-  const [tab, setTab] = React.useState<'chart' | 'zones' | 'options' | 'analysis'>('chart')
+  const [tab, setTab] = React.useState<'chart' | 'news' | 'zones' | 'options' | 'analysis'>('chart')
 
   const cats: string[] = row.categories ?? []
   const companyName    = COMPANY_NAMES[row.ticker] ?? row.company_name ?? null
@@ -628,29 +628,88 @@ function StockCard({ row }: { row: any }) {
         onClick={() => setExpanded(e => !e)}
         className="w-full px-4 py-2 text-xs font-semibold text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors border-t border-slate-100 flex items-center justify-center gap-1"
       >
-        {expanded ? '▲ Show less' : '▼ Chart · Action zones · Options · Analysis'}
+        {expanded ? '▲ Show less' : '▼ Chart · News · Zones · Options · Analysis'}
       </button>
 
       {/* ── Expanded detail ── */}
       {expanded && (
         <div className="border-t border-slate-100">
-          <div className="flex bg-slate-50 border-b border-slate-100">
-            {(['chart', 'zones', 'options', 'analysis'] as const).map(t => (
+          <div className="flex bg-slate-50 border-b border-slate-100 overflow-x-auto">
+            {(['chart', 'news', 'zones', 'options', 'analysis'] as const).map(t => (
               <button key={t} onClick={() => setTab(t)}
-                className={`flex-1 py-2 text-xs font-bold uppercase tracking-wide transition-colors
+                className={`flex-1 py-2 text-xs font-bold uppercase tracking-wide transition-colors whitespace-nowrap px-3
                   ${tab === t ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                {t === 'chart' ? '📈 Chart' : t === 'zones' ? '🎯 Zones' : t === 'options' ? '⚡ Options' : '📚 Analysis'}
+                {t === 'chart' ? '📈 Chart' : t === 'news' ? '📰 News' : t === 'zones' ? '🎯 Zones' : t === 'options' ? '⚡ Options' : '📚 Analysis'}
               </button>
             ))}
           </div>
           <div className="px-4 py-4 space-y-4">
             {tab === 'chart'    && <TradingViewChart ticker={row.ticker} />}
+            {tab === 'news'     && <NewsPanel ticker={row.ticker} />}
             {tab === 'zones'    && <ActionZonesPanel row={row} />}
             {tab === 'options'  && <OptionsInterpretationCard row={row} />}
             {tab === 'analysis' && <><NarrativePanel row={row} /><EducationalPanel row={row} /></>}
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// News panel — fetches on mount, shows headlines with publisher + age
+// ─────────────────────────────────────────────────────────────────────────────
+const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8001'
+
+function timeAgo(isoStr: string | null): string {
+  if (!isoStr) return ''
+  const diff = Date.now() - new Date(isoStr).getTime()
+  const h = Math.floor(diff / 3_600_000)
+  if (h < 1) return 'just now'
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
+function NewsPanel({ ticker }: { ticker: string }) {
+  const [articles, setArticles] = React.useState<any[] | null>(null)
+  const [error, setError]       = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    setArticles(null); setError(null)
+    fetch(`${API_BASE}/news/${ticker}?max=6`)
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(d => setArticles(d.articles || []))
+      .catch(e => setError(`Failed to load news (${e})`))
+  }, [ticker])
+
+  if (error) return <p className="text-xs text-red-500">{error}</p>
+  if (!articles) return (
+    <div className="flex items-center gap-2 text-xs text-slate-400 py-2">
+      <svg className="animate-spin h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+      </svg>
+      Loading news…
+    </div>
+  )
+  if (!articles.length) return <p className="text-xs text-slate-400 italic">No recent news found.</p>
+
+  return (
+    <div className="space-y-2.5">
+      {articles.map((a, i) => (
+        <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+          className="flex flex-col gap-0.5 p-2.5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-colors group">
+          <span className="text-sm font-semibold text-slate-800 group-hover:text-blue-700 leading-snug">{a.title}</span>
+          <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+            {a.publisher && <span className="font-medium text-slate-500">{a.publisher}</span>}
+            {a.publisher && a.published_at && <span>·</span>}
+            {a.published_at && <span>{timeAgo(a.published_at)}</span>}
+          </div>
+          {a.snippet && (
+            <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 mt-0.5">{a.snippet}</p>
+          )}
+        </a>
+      ))}
     </div>
   )
 }
@@ -756,15 +815,17 @@ export default function StockTable({ data }: { data: any[] }) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-1.5">
           {FILTERS.map(f => (
-            <button key={f.id} onClick={() => setFilter(f.id)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all
-                ${filter === f.id
-                  ? 'bg-blue-600 text-white border-blue-600 shadow'
-                  : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-600'}`}>
-              {f.icon} {f.label}
-              {filter === f.id && filtered.length !== data.length &&
-                <span className="ml-0.5 bg-blue-500 text-white rounded-full px-1.5 text-[10px]">{filtered.length}</span>}
-            </button>
+            <Tooltip key={f.id} text={f.tip}>
+              <button onClick={() => setFilter(f.id)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all
+                  ${filter === f.id
+                    ? 'bg-blue-600 text-white border-blue-600 shadow'
+                    : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-600'}`}>
+                {f.icon} {f.label}
+                {filter === f.id && filtered.length !== data.length &&
+                  <span className="ml-0.5 bg-blue-500 text-white rounded-full px-1.5 text-[10px]">{filtered.length}</span>}
+              </button>
+            </Tooltip>
           ))}
           {filter !== 'all' && (
             <button onClick={() => setFilter('all')} className="text-xs text-gray-400 hover:text-gray-600 underline px-1">✕ clear</button>
