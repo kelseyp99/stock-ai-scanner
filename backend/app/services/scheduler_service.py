@@ -111,7 +111,7 @@ def get_next_run_time(setting_id: int):
     job = scheduler.get_job(f'scheduler_{setting_id}')
     if not job:
         return None
-    return job.next_run_time
+    return getattr(job, 'next_run_time', None)
 
 
 def _acquire_user_lock(user_id: str) -> bool:
