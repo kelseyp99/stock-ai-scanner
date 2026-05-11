@@ -33,8 +33,8 @@ export default function Header(){
             src="/theta-forge.png"
             alt="ThetaForge Logo"
             style={{
-              height: 110,
-              width: 110,
+              height: 160,
+              width: 160,
               verticalAlign: 'middle',
               marginRight: 28,
               borderRadius: 20,

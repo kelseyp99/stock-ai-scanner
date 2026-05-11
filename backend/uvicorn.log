@@ -11,3 +11,7 @@ INFO:     127.0.0.1:55006 - "GET /scan/latest HTTP/1.1" 200 OK
 INFO:     127.0.0.1:55008 - "GET /scan/latest HTTP/1.1" 200 OK
 INFO:     127.0.0.1:55025 - "GET /scan/latest HTTP/1.1" 200 OK
 INFO:     127.0.0.1:55027 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55120 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55122 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55136 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55138 - "GET /scan/latest HTTP/1.1" 200 OK
