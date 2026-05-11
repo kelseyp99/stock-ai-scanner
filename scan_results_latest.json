@@ -55,7 +55,8 @@
       "ma_convergence_label": "MA Spread Wide",
       "universe": "sp500",
       "percentile_rank": 100,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "Block, Inc."
     },
     {
       "ticker": "HSTM",
@@ -103,7 +104,8 @@
       "ma_convergence_label": null,
       "universe": "russell2000",
       "percentile_rank": 100,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "HealthStream, Inc."
     },
     {
       "ticker": "CLBK",
@@ -149,7 +151,8 @@
       "ma_convergence_label": null,
       "universe": "russell2000",
       "percentile_rank": 100,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "Columbia Financial, Inc."
     },
     {
       "ticker": "CHMG",
@@ -196,7 +199,8 @@
       "ma_convergence_label": "MA Spread Wide",
       "universe": "russell2000",
       "percentile_rank": 100,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "Chemung Financial Corporation"
     },
     {
       "ticker": "CPRX",
@@ -244,7 +248,8 @@
       "ma_convergence_label": "MA Spread Wide",
       "universe": "russell2000",
       "percentile_rank": 100,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "Catalyst Pharmaceuticals, Inc."
     },
     {
       "ticker": "EFC",
@@ -290,7 +295,8 @@
       "ma_convergence_label": "MA Spread Wide",
       "universe": "russell2000",
       "percentile_rank": 100,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "Ellington Financial Inc."
     },
     {
       "ticker": "KHC",
@@ -337,7 +343,8 @@
       "ma_convergence_label": "Bullish Crossover Setup",
       "universe": "sp500",
       "percentile_rank": 100,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "The Kraft Heinz Company"
     },
     {
       "ticker": "PDM",
@@ -385,7 +392,8 @@
       "ma_convergence_label": "MA Spread Wide",
       "universe": "russell2000",
       "percentile_rank": 100,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "Piedmont Realty Trust, Inc."
     },
     {
       "ticker": "AVPT",
@@ -434,7 +442,8 @@
       "ma_convergence_label": "Bullish Crossover Setup",
       "universe": "russell2000",
       "percentile_rank": 98,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "AvePoint, Inc."
     },
     {
       "ticker": "NWS",
@@ -480,7 +489,8 @@
       "ma_convergence_label": "MA Spread Wide",
       "universe": "sp500",
       "percentile_rank": 98,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "News Corporation"
     },
     {
       "ticker": "NWSA",
@@ -526,7 +536,8 @@
       "ma_convergence_label": null,
       "universe": "sp500",
       "percentile_rank": 98,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "News Corporation"
     },
     {
       "ticker": "ZVIA",
@@ -577,7 +588,8 @@
       "ma_convergence_label": "Bullish Crossover Setup",
       "universe": "russell2000",
       "percentile_rank": 98,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "Zevia PBC"
     },
     {
       "ticker": "MTX",
@@ -623,7 +635,8 @@
       "ma_convergence_label": null,
       "universe": "russell2000",
       "percentile_rank": 98,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "Minerals Technologies Inc."
     },
     {
       "ticker": "NPCE",
@@ -671,7 +684,8 @@
       "ma_convergence_label": "MA Spread Wide",
       "universe": "russell2000",
       "percentile_rank": 98,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "NeuroPace, Inc."
     },
     {
       "ticker": "CBL",
@@ -717,7 +731,8 @@
       "ma_convergence_label": "MA Spread Wide",
       "universe": "russell2000",
       "percentile_rank": 98,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "CBL & Associates Properties, Inc."
     },
     {
       "ticker": "STRZ",
@@ -765,7 +780,8 @@
       "ma_convergence_label": "MA Spread Wide",
       "universe": "russell2000",
       "percentile_rank": 98,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "Starz Entertainment Corp."
     },
     {
       "ticker": "NXPI",
@@ -813,7 +829,8 @@
       "ma_convergence_label": "MA Spread Wide",
       "universe": "sp500",
       "percentile_rank": 98,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "NXP Semiconductors N.V."
     },
     {
       "ticker": "NXPI",
@@ -861,7 +878,8 @@
       "ma_convergence_label": "MA Spread Wide",
       "universe": "nasdaq100",
       "percentile_rank": 98,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "NXP Semiconductors N.V."
     },
     {
       "ticker": "PKOH",
@@ -909,7 +927,8 @@
       "ma_convergence_label": "MA Spread Wide",
       "universe": "russell2000",
       "percentile_rank": 98,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "Park-Ohio Holdings Corp."
     },
     {
       "ticker": "VERX",
@@ -959,7 +978,8 @@
       "ma_convergence_label": "Bullish Crossover Setup",
       "universe": "russell2000",
       "percentile_rank": 98,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "Vertex, Inc."
     },
     {
       "ticker": "RGP",
@@ -1008,7 +1028,8 @@
       "ma_convergence_label": "MA Spread Wide",
       "universe": "russell2000",
       "percentile_rank": 98,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "Resources Connection, Inc."
     },
     {
       "ticker": "DIOD",
@@ -1056,7 +1077,8 @@
       "ma_convergence_label": "MA Spread Wide",
       "universe": "russell2000",
       "percentile_rank": 98,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "Diodes Incorporated"
     },
     {
       "ticker": "GDYN",
@@ -1106,7 +1128,8 @@
       "ma_convergence_label": "Bullish Crossover Setup",
       "universe": "russell2000",
       "percentile_rank": 98,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "Grid Dynamics Holdings, Inc."
     },
     {
       "ticker": "HPQ",
@@ -1154,7 +1177,8 @@
       "ma_convergence_label": null,
       "universe": "sp500",
       "percentile_rank": 98,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "HP Inc."
     },
     {
       "ticker": "SLG",
@@ -1201,7 +1225,8 @@
       "ma_convergence_label": "MA Spread Wide",
       "universe": "russell2000",
       "percentile_rank": 98,
-      "percentile_label": "\ud83c\udfc5 Elite"
+      "percentile_label": "\ud83c\udfc5 Elite",
+      "company_name": "SL Green Realty Corp."
     }
   ],
   "by_universe": {

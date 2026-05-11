@@ -55,6 +55,31 @@ FULL_MAX          = 9999  # effectively unlimited — scans every ticker in univ
 OUTPUT_FILE       = ROOT / 'scan_results_latest.json'
 
 
+def _post_results(url: str, payload: dict) -> None:
+    """POST scan results payload to a remote ingest endpoint."""
+    import urllib.request
+    import urllib.error
+    token = os.environ.get('SCAN_INGEST_TOKEN', 'changeme-set-SCAN_INGEST_TOKEN')
+    body = json.dumps(payload, default=str).encode('utf-8')
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method='POST',
+        headers={
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {token}',
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            resp_body = resp.read().decode()
+            log.info(f'[callback] POST {url} → HTTP {resp.status}  {resp_body[:200]}')
+    except urllib.error.HTTPError as e:
+        log.error(f'[callback] POST {url} failed HTTP {e.code}: {e.read().decode()[:200]}')
+    except Exception as e:
+        log.error(f'[callback] POST {url} error: {e}')
+
+
 def _sort_results(results: list) -> list:
     return sorted(
         results,
@@ -135,6 +160,12 @@ def main():
         '--top', type=int, default=25,
         metavar='N',
         help='Top N results to include in the summary (default: 25)',
+    )
+    parser.add_argument(
+        '--callback-url', default=None,
+        metavar='URL',
+        help='POST scan results to this URL when done (e.g. https://your-host/scan/ingest). '
+             'Set SCAN_INGEST_TOKEN env var for Bearer auth.',
     )
     args = parser.parse_args()
 
@@ -219,6 +250,10 @@ def main():
 
     OUTPUT_FILE.write_text(json.dumps(payload, indent=2, default=str))
     log.info(f'Results saved → {OUTPUT_FILE}')
+
+    # ── POST to callback URL if provided ─────────────────────────────────────
+    if args.callback_url:
+        _post_results(args.callback_url, payload)
 
     # ── Print top picks to console ────────────────────────────────────────────
     log.info('═' * 60)

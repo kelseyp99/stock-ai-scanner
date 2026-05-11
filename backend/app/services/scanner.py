@@ -640,14 +640,15 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
             t.start()
             t.join(timeout=15)   # hard 15s cap on .info — it hangs on delisted/bad tickers
             info        = _info_result.get('data', {})
-            raw_yield   = info.get('dividendYield', 0)
-            market_cap  = info.get('marketCap', None)
-            implied_vol = info.get('impliedVolatility', None)
+            raw_yield    = info.get('dividendYield', 0)
+            market_cap   = info.get('marketCap', None)
+            implied_vol  = info.get('impliedVolatility', None)
+            company_name = info.get('longName') or info.get('shortName') or None
             if market_cap is not None:
                 try: market_cap = float(market_cap)
                 except: market_cap = None
         except Exception:
-            raw_yield, market_cap, implied_vol = 0, None, None
+            raw_yield, market_cap, implied_vol, company_name = 0, None, None, None
 
         dividend_yield_pct = normalize_dividend_yield(raw_yield)
         stock_return       = calc_20d_return(close)
@@ -679,6 +680,7 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
 
         result = {
             'ticker': normalize_ticker(ticker),
+            'company_name': company_name,
             'price':  round(price, 2) if price is not None else None,
             'rsi':    round(rsi, 2) if rsi is not None else None,
             'ma20':   round(ma20, 2) if ma20 is not None else None,

@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Body, Query
+from fastapi import APIRouter, Depends, HTTPException, Body, Query, Header
 from fastapi.responses import JSONResponse
-from typing import List
+from typing import List, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import json, os, pathlib
+import json, os, pathlib, secrets
 from ..services.scanner import scan_ticker
 from ..services.ai_summary_service import generate_scan_summary
 from ..services.options_chain_service import get_options_chain
@@ -123,6 +123,44 @@ def scan_latest():
             deduped.append(item)
     data['top_ranked'] = deduped
     return JSONResponse(content=data)
+
+
+# ── Ingest endpoint: Hetzner worker POSTs results here ──────────────────────
+_INGEST_TOKEN = os.environ.get('SCAN_INGEST_TOKEN', 'changeme-set-SCAN_INGEST_TOKEN')
+
+@router.post('/scan/ingest')
+def scan_ingest(
+    payload: dict = Body(...),
+    authorization: Optional[str] = Header(None),
+):
+    """
+    Accept scan results POSTed from a remote worker (e.g. Hetzner VM).
+    Requires Bearer token in Authorization header matching SCAN_INGEST_TOKEN env var.
+
+    Body: same shape as scan_results_latest.json
+    """
+    # Token auth
+    expected = f'Bearer {_INGEST_TOKEN}'
+    if not authorization or not secrets.compare_digest(authorization, expected):
+        raise HTTPException(status_code=401, detail='Invalid or missing bearer token')
+
+    # Validate minimal shape
+    if not isinstance(payload, dict) or 'global_top' not in payload:
+        raise HTTPException(status_code=422, detail='Payload must include global_top list')
+
+    # Persist — overwrite latest results file
+    OUTPUT_FILE = pathlib.Path(__file__).parents[3] / 'scan_results_latest.json'
+    OUTPUT_FILE.write_text(json.dumps(payload, indent=2, default=str))
+
+    top_count = len(payload.get('global_top') or [])
+    universes = payload.get('universes_scanned') or []
+    return JSONResponse(content={
+        'status': 'ok',
+        'top_count': top_count,
+        'universes': universes,
+        'saved_to': str(OUTPUT_FILE),
+    })
+
 
 @router.get('/scan/debug')
 def scan_all_debug(sample: int = 50, db: Session = Depends(get_db)):
