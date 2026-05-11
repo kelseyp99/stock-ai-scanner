@@ -30,7 +30,7 @@ export default function Header(){
       }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <img
-            src="/theta-forge.png"
+            src="/logo.png"
             alt="ThetaForge Logo"
             style={{
               height: 160,
