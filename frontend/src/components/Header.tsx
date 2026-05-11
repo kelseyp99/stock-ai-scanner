@@ -33,15 +33,16 @@ export default function Header(){
             src="/logo.png"
             alt="ThetaForge Logo"
             style={{
-              height: 160,
-              width: 160,
+              height: 220,
+              width: 220,
               verticalAlign: 'middle',
-              marginRight: 28,
-              borderRadius: 20,
-              boxShadow: '0 4px 16px rgba(0,0,0,0.13)',
-              border: '3px solid #f7c873',
-              background: '#fff',
-              objectFit: 'contain'
+              marginRight: 24,
+              borderRadius: '50%',
+              boxShadow: '0 6px 32px rgba(247,150,0,0.45), 0 2px 8px rgba(0,0,0,0.25)',
+              border: '4px solid #f7a000',
+              background: 'transparent',
+              objectFit: 'contain',
+              display: 'block',
             }}
           />
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
