@@ -1,4 +1,4 @@
-"""scanner.py — Core stock scanning logic (v2: ATR%, action zones, risk profiles, weighted scoring)."""
+"""scanner.py — Core stock scanning logic (v3: richer labels, trade types, volatility compression, percentile scores)."""
 import math
 import time
 import yfinance as yf
@@ -6,6 +6,46 @@ import pandas as pd
 from ..indicators.indicators import compute_rsi, moving_average, calculate_atr as _calc_atr
 import logging
 logger = logging.getLogger(__name__)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Share-class normalisation — prefer highest-volume / most-liquid class
+# ─────────────────────────────────────────────────────────────────────────────
+_SHARE_CLASS_GROUPS: dict[str, str] = {
+    'GOOG': 'GOOGL',   # prefer voting shares
+    'BRK.A': 'BRK.B',  # prefer accessible B shares
+    'BRK/A': 'BRK.B',
+    'BRK/B': 'BRK.B',
+}
+
+def normalize_ticker(ticker: str) -> str:
+    """Return canonical ticker for known share-class duplicates."""
+    return _SHARE_CLASS_GROUPS.get(ticker.upper(), ticker.upper())
+
+def deduplicate_results(results: list[dict]) -> list[dict]:
+    """Keep one entry per canonical ticker, merging categories/reasons."""
+    seen: dict[str, dict] = {}
+    for r in results:
+        key = normalize_ticker(r.get('ticker', ''))
+        if key not in seen:
+            r = dict(r); r['ticker'] = key
+            seen[key] = r
+        else:
+            # Merge categories and reasons
+            existing = seen[key]
+            merged_cats = list(dict.fromkeys(
+                (existing.get('categories') or []) + (r.get('categories') or [])
+            ))
+            existing['categories'] = merged_cats
+            # Keep higher score entry's other fields
+            if (r.get('score') or 0) > (existing.get('score') or 0):
+                for k in ('score', 'bullish_score', 'risk_score', 'explanation', 'trade_type',
+                          'setup_quality', 'percentile_rank', 'percentile_label'):
+                    if r.get(k) is not None:
+                        existing[k] = r[k]
+            # Merge universe tags
+            if r.get('universe') and r['universe'] != existing.get('universe'):
+                existing['universe'] = f"{existing.get('universe','')},{r['universe']}"
+    return list(seen.values())
 
 # ── SPY return cache ──────────────────────────────────────────────────────────
 _spy_cache: dict = {'return': None, 'ts': 0.0}
@@ -172,11 +212,15 @@ def calculate_action_zones(price, ma20, ma50, atr_dollar) -> dict:
 def calculate_ma_distance(price, ma20) -> tuple[float | None, str | None]:
     if price is None or ma20 is None or ma20 == 0: return None, None
     pct = round(((price - ma20) / ma20) * 100, 2)
-    if   pct >  8: label = 'Extended'
-    elif pct >  3: label = 'Slightly Extended'
-    elif pct > -3: label = 'Neutral'
-    elif pct > -8: label = 'Pulling Back'
-    else:          label = 'Oversold'
+    if   pct >  20: label = '🚀 Parabolic'
+    elif pct >  12: label = '🔥 Euphoric'
+    elif pct >   8: label = '⚠️ Very Extended'
+    elif pct >   5: label = 'Extended'
+    elif pct >   2: label = 'Slightly Extended'
+    elif pct >  -2: label = 'Neutral'
+    elif pct >  -5: label = 'Pulling Back'
+    elif pct > -10: label = '🔻 Oversold'
+    else:           label = '💀 Deep Oversold'
     return pct, label
 
 # ── Risk profile ──────────────────────────────────────────────────────────────
@@ -233,29 +277,42 @@ def calculate_weighted_score(rsi, price, ma20, ma50, volume_ratio, dividend_yiel
 # ── Category assignment ───────────────────────────────────────────────────────
 
 def assign_categories(rsi, price, ma20, ma50, volume_ratio, dividend_yield_pct, atr_pct,
-                      market_cap=None, relative_strength=None, ma_convergence_label=None) -> list:
+                      market_cap=None, relative_strength=None, ma_convergence_label=None,
+                      ma_distance_pct=None, squeeze=False) -> list:
     cats = []
-    if rsi is not None:
-        if rsi < 35: cats.append('Oversold')
-        if rsi > 65: cats.extend(['Momentum', 'Pullback Risk'])
+    # Oversold first
+    if rsi is not None and rsi < 35: cats.append('Oversold')
+    # Momentum
+    if rsi is not None and rsi > 65:
+        cats.append('Momentum')
+    # Pullback Risk — only when BOTH RSI AND extension are extreme (Fix #2)
+    if rsi is not None and atr_pct is not None and ma_distance_pct is not None:
+        pullback = (
+            (rsi > 75 and ma_distance_pct > 8) or
+            (atr_pct > 5 and ma_distance_pct > 10)
+        )
+        if pullback:
+            cats.append('Pullback Risk')
+    # Trend position
     if price is not None and ma20 is not None and ma50 is not None:
         if price > ma20 and price > ma50:
             if 'Momentum' not in cats: cats.append('Momentum')
         elif price < ma20 and price < ma50:
             cats.append('Weak Trend')
-    if volume_ratio > 1.5: cats.append('Breakout Volume')
+    if volume_ratio is not None and volume_ratio > 1.5: cats.append('Breakout Volume')
     if dividend_yield_pct and dividend_yield_pct > 3.0: cats.append('Dividend')
     if atr_pct is not None:
         if atr_pct >= 5.0: cats.append('Extreme Volatility')
         elif atr_pct >= 3.0: cats.append('High Volatility')
+    if squeeze: cats.append('🌀 Volatility Compression')
     if is_speculative_stock(price, market_cap, atr_pct): cats.append('Speculative / High Risk')
     if relative_strength is not None:
         if relative_strength > 10: cats.append('Market Leader')
         elif relative_strength < -10: cats.append('Market Laggard')
     if ma_convergence_label in ('Bullish Crossover Setup', 'Bearish Crossover Risk', 'MA Converging'):
         cats.append(ma_convergence_label)
-    seen = set()
-    return [c for c in cats if not (seen.add(c) or c in seen - {c})]
+    seen: set = set()
+    return [c for c in cats if c not in seen and not seen.add(c)]  # type: ignore
 
 # ── Natural-language explanation ──────────────────────────────────────────────
 
@@ -287,6 +344,99 @@ def generate_explanation(price, rsi, ma20, ma50, atr_pct, volume_ratio,
     if dividend_yield_pct and dividend_yield_pct > 3:
         parts.append(f"{dividend_yield_pct:.1f}% dividend yield supports income thesis.")
     return " ".join(parts) if parts else "No significant signals detected."
+
+# ── Volatility compression (squeeze) detection ───────────────────────────────
+
+def detect_volatility_compression(high: pd.Series, low: pd.Series, close: pd.Series) -> bool:
+    """True when ATR is contracting relative to its 20-period average (squeeze)."""
+    try:
+        atr_series = _calc_atr(high, low, close, period=14)
+        if atr_series is None or len(atr_series) < 22: return False
+        current_atr = float(atr_series.iloc[-1])
+        avg_atr     = float(atr_series.iloc[-21:-1].mean())
+        if avg_atr == 0: return False
+        return (current_atr / avg_atr) < 0.75
+    except Exception:
+        return False
+
+# ── Trade Type Engine (Feature #5) ───────────────────────────────────────────
+
+def assign_trade_type(rsi, atr_pct, volume_ratio, dividend_yield_pct,
+                      ma_distance_pct, ma_conv_label, market_cap, squeeze) -> str:
+    """Classify the most appropriate trade type based on signal combination."""
+    atr   = atr_pct   or 0.0
+    dist  = ma_distance_pct or 0.0
+    div   = dividend_yield_pct or 0.0
+    rsi_v = rsi or 50.0
+    vol   = volume_ratio or 0.0
+
+    # Volatility compression → breakout setup
+    if squeeze and atr < 2.5:
+        return 'Volatility Expansion'
+
+    # Speculative small-cap breakout
+    if market_cap is not None and market_cap < 5_000_000_000 and vol > 2.0 and rsi_v > 60:
+        return 'Speculative Breakout'
+
+    # Deep oversold mean reversion
+    if rsi_v < 35 and dist < -5:
+        return 'Mean Reversion Setup'
+
+    # Dividend income
+    if div > 3.0 and atr < 2.5:
+        return 'Covered Call Income' if atr > 1.0 else 'Dividend Trend'
+
+    # Momentum swing — strong RSI + above MAs + volume
+    if rsi_v > 65 and dist > 3 and vol >= 1.0:
+        return 'Momentum Swing'
+
+    # Breakout trade — high volume spike
+    if vol >= 2.0 and rsi_v > 55:
+        return 'Breakout Trade'
+
+    # Low vol compression without squeeze signal
+    if atr < 1.5 and abs(dist) < 3:
+        return 'Low Volatility Trend'
+
+    # Mild pullback in uptrend
+    if -8 < dist < -2 and rsi_v < 55:
+        return 'Mean Reversion Setup'
+
+    return 'Momentum Swing'
+
+# ── Setup Quality Grade (Feature #9) ─────────────────────────────────────────
+
+def assign_setup_quality(composite_score: int, volume_ratio: float, rsi,
+                          ma_distance_pct, atr_pct, squeeze: bool) -> str:
+    """Grade setup quality: A+, A, B, C."""
+    score = 0
+    if composite_score >= 10: score += 3
+    elif composite_score >= 7: score += 2
+    elif composite_score >= 4: score += 1
+    if volume_ratio is not None and volume_ratio >= 2.0: score += 2
+    elif volume_ratio is not None and volume_ratio >= 1.5: score += 1
+    if rsi is not None and 55 <= rsi <= 75: score += 1
+    if ma_distance_pct is not None and 2 <= ma_distance_pct <= 12: score += 1
+    if atr_pct is not None and 2 <= atr_pct <= 5: score += 1
+    if squeeze: score += 1
+    if score >= 8: return 'A+'
+    if score >= 6: return 'A'
+    if score >= 4: return 'B'
+    return 'C'
+
+# ── Percentile scoring (Fix #4) ──────────────────────────────────────────────
+
+def assign_percentile_rank(score: int, all_scores: list[int]) -> tuple[int, str]:
+    """Convert raw score into a percentile rank and label."""
+    if not all_scores: return 50, 'Average'
+    rank = sum(1 for s in all_scores if s < score) / len(all_scores) * 100
+    rank = round(rank)
+    if rank >= 95: label = '🏅 Elite'
+    elif rank >= 85: label = '⭐ Strong'
+    elif rank >= 70: label = '✅ Good'
+    elif rank >= 50: label = '📊 Average'
+    else: label = '🔻 Below Avg'
+    return rank, label
 
 # ── Main scan function ────────────────────────────────────────────────────────
 
@@ -331,20 +481,26 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False):
                               if stock_return is not None and spy_return is not None else None)
         ma_conv            = detect_ma_convergence(close)
         ma_conv_label      = ma_conv['ma_convergence_label']
+        squeeze            = detect_volatility_compression(high, low, close)
 
-        expected_move_pct              = calculate_expected_move(atr_pct, implied_vol)
-        action_zones                   = calculate_action_zones(price, ma20, ma50, atr_dollar)
+        expected_move_pct                  = calculate_expected_move(atr_pct, implied_vol)
+        action_zones                       = calculate_action_zones(price, ma20, ma50, atr_dollar)
         ma_distance_pct, ma_distance_label = calculate_ma_distance(price, ma20)
-        risk_profile                   = assign_risk_profile(atr_pct, market_cap, dividend_yield_pct, rsi, price, ma20, ma50)
+        risk_profile                       = assign_risk_profile(atr_pct, market_cap, dividend_yield_pct, rsi, price, ma20, ma50)
         bullish_score, risk_score, composite_score, reasons = calculate_weighted_score(
             rsi, price, ma20, ma50, volume_ratio, dividend_yield_pct, atr_pct, market_cap, relative_strength, ma_conv_label)
         categories  = assign_categories(rsi, price, ma20, ma50, volume_ratio, dividend_yield_pct, atr_pct,
-                                        market_cap, relative_strength, ma_conv_label)
+                                        market_cap, relative_strength, ma_conv_label,
+                                        ma_distance_pct=ma_distance_pct, squeeze=squeeze)
+        trade_type   = assign_trade_type(rsi, atr_pct, volume_ratio, dividend_yield_pct,
+                                         ma_distance_pct, ma_conv_label, market_cap, squeeze)
+        setup_quality = assign_setup_quality(composite_score, volume_ratio, rsi,
+                                             ma_distance_pct, atr_pct, squeeze)
         explanation = generate_explanation(price, rsi, ma20, ma50, atr_pct, volume_ratio,
                                            ma_distance_pct, relative_strength, dividend_yield_pct)
 
         result = {
-            'ticker': ticker,
+            'ticker': normalize_ticker(ticker),
             'price':  round(price, 2) if price is not None else None,
             'rsi':    round(rsi, 2) if rsi is not None else None,
             'ma20':   round(ma20, 2) if ma20 is not None else None,
@@ -374,6 +530,9 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False):
             'reasons':        '; '.join(reasons),
             'explanation':    explanation,
             'risk_profile':   risk_profile,
+            'trade_type':     trade_type,
+            'setup_quality':  setup_quality,
+            'squeeze':        squeeze,
             'relative_strength_20d':    relative_strength,
             'ma_spread_percent':        ma_conv['ma_spread_percent'],
             'ma_convergence_direction': ma_conv['ma_convergence_direction'],

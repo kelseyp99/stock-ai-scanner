@@ -30,7 +30,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / 'backend'))
 
-from app.services.scanner import scan_ticker
+from app.services.scanner import scan_ticker, assign_percentile_rank
 from app.services.index_universe_service import get_universe_tickers
 from app.services.ai_summary_service import generate_scan_summary
 
@@ -173,6 +173,13 @@ def main():
         log.info(f'[{uid}] Finished in {elapsed}s')
 
     # ── Global top across all universes ───────────────────────────────────────
+    global_top = _sort_results(all_results)[:args.top]
+
+    # ── Assign percentile ranks across the full result set ───────────────────
+    all_scores = [r.get('score') or 0 for r in all_results]
+    for r in all_results:
+        r['percentile_rank'], r['percentile_label'] = assign_percentile_rank(r.get('score') or 0, all_scores)
+    # Rebuild global_top after enrichment (same slice, already sorted)
     global_top = _sort_results(all_results)[:args.top]
 
     log.info('─' * 60)
