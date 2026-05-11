@@ -566,6 +566,14 @@ function StockCard({ row }: { row: any }) {
               )}
               {inBuy      && <span className="text-xs font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">�� Buy Zone</span>}
               {hasSqueeze && !inBuy && <span className="text-xs font-bold text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded-full">🌀 Squeeze</span>}
+              {row.news_catalyst && (
+                <Tooltip text={row.news_headline ? `"${row.news_headline}"` : row.news_catalyst}>
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold shadow-sm cursor-default
+                    ${(row.news_boost ?? 0) >= 2 ? 'bg-amber-400 text-amber-900' : (row.news_boost ?? 0) <= -2 ? 'bg-red-200 text-red-800' : 'bg-slate-200 text-slate-700'}`}>
+                    {row.news_catalyst}
+                  </span>
+                </Tooltip>
+              )}
               {row.risk_profile && <span className="text-xs text-slate-400 font-medium">{row.risk_profile}</span>}
             </div>
             {row.confidence != null && (

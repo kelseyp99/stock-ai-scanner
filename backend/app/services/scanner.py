@@ -630,15 +630,24 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
 
         try:
             import threading
+            from .news_signal_service import fetch_and_score_news
             _info_result = {}
+            _news_result = {}
             def _fetch_info():
                 try:
                     _info_result['data'] = yf.Ticker(ticker).info
                 except Exception:
                     _info_result['data'] = {}
-            t = threading.Thread(target=_fetch_info, daemon=True)
-            t.start()
-            t.join(timeout=15)   # hard 15s cap on .info — it hangs on delisted/bad tickers
+            def _fetch_news():
+                try:
+                    _news_result['data'] = fetch_and_score_news(ticker, db=session)
+                except Exception:
+                    _news_result['data'] = {}
+            t_info = threading.Thread(target=_fetch_info, daemon=True)
+            t_news = threading.Thread(target=_fetch_news, daemon=True)
+            t_info.start(); t_news.start()
+            t_info.join(timeout=15)   # hard 15s cap on .info — it hangs on delisted/bad tickers
+            t_news.join(timeout=12)   # news is best-effort; don't block the scan
             info        = _info_result.get('data', {})
             raw_yield    = info.get('dividendYield', 0)
             market_cap   = info.get('marketCap', None)
@@ -647,8 +656,10 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
             if market_cap is not None:
                 try: market_cap = float(market_cap)
                 except: market_cap = None
+            news_signal  = _news_result.get('data') or {}
         except Exception:
             raw_yield, market_cap, implied_vol, company_name = 0, None, None, None
+            news_signal = {}
 
         dividend_yield_pct = normalize_dividend_yield(raw_yield)
         stock_return       = calc_20d_return(close)
@@ -666,6 +677,16 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
         bullish_score, risk_score, composite_score, reasons = calculate_weighted_score(
             rsi, price, ma20, ma50, volume_ratio, dividend_yield_pct, atr_pct, market_cap,
             relative_strength, ma_conv_label, ma_distance_pct=ma_distance_pct)
+
+        # ── News catalyst boost ────────────────────────────────────────────────
+        news_boost    = news_signal.get('news_boost', 0) or 0
+        news_catalyst = news_signal.get('news_catalyst')
+        news_headline = news_signal.get('news_headline')
+        if news_boost != 0:
+            composite_score += news_boost
+            if news_catalyst:
+                reasons.append(f'News catalyst: {news_catalyst}')
+
         confidence   = assign_confidence(bullish_score, risk_score, rsi, atr_pct, volume_ratio,
                                          relative_strength, ma_distance_pct, squeeze)
         categories   = assign_categories(rsi, price, ma20, ma50, volume_ratio, dividend_yield_pct, atr_pct,
@@ -718,6 +739,9 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
             'ma_spread_percent':        ma_conv['ma_spread_percent'],
             'ma_convergence_direction': ma_conv['ma_convergence_direction'],
             'ma_convergence_label':     ma_conv['ma_convergence_label'],
+            'news_boost':    news_boost,
+            'news_catalyst': news_catalyst,
+            'news_headline': news_headline,
         }
         if debug: result['ok'] = True; result['debug'] = debug_info
         return result
