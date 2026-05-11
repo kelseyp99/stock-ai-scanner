@@ -247,31 +247,89 @@ def is_speculative_stock(price, market_cap, atr_pct) -> bool:
 # ── Weighted scoring ──────────────────────────────────────────────────────────
 
 def calculate_weighted_score(rsi, price, ma20, ma50, volume_ratio, dividend_yield_pct,
-                              atr_pct, market_cap, relative_strength, ma_conv_label):
+                              atr_pct, market_cap, relative_strength, ma_conv_label,
+                              ma_distance_pct=None):
     reasons = []; bullish = 0; risk = 0
+
+    # ── RSI ──────────────────────────────────────────────────────────────────
     if rsi is not None:
-        if rsi > 65:   bullish += 2; reasons.append(f'RSI {rsi:.1f} — strong momentum')
-        elif rsi < 35: bullish += 1; reasons.append(f'RSI {rsi:.1f} — oversold, potential reversal')
+        if rsi > 85:
+            bullish += 1; risk += 3
+            reasons.append(f'RSI {rsi:.1f} — extremely overbought, reversal risk elevated')
+        elif rsi > 75:
+            bullish += 2; risk += 2
+            reasons.append(f'RSI {rsi:.1f} — overbought territory, caution on new longs')
+        elif rsi > 65:
+            bullish += 2
+            reasons.append(f'RSI {rsi:.1f} — strong momentum')
+        elif rsi < 25:
+            bullish += 2; risk += 1
+            reasons.append(f'RSI {rsi:.1f} — deeply oversold, potential bounce candidate')
+        elif rsi < 35:
+            bullish += 1
+            reasons.append(f'RSI {rsi:.1f} — oversold, mean reversion possible')
+
+    # ── MA position ───────────────────────────────────────────────────────────
     if price is not None and ma20 is not None:
-        if price > ma20: bullish += 2; reasons.append('Above MA20')
+        if price > ma20: bullish += 2; reasons.append('Above MA20 — bullish near-term bias')
         else:            risk    += 2; reasons.append('Below MA20 — bearish bias')
     if price is not None and ma50 is not None:
-        if price > ma50: bullish += 2; reasons.append('Above MA50')
-    if volume_ratio is not None and volume_ratio > 1.5:
-        bullish += 2; reasons.append(f'Volume {volume_ratio:.1f}x average — breakout signal')
+        if price > ma50: bullish += 2; reasons.append('Above MA50 — intermediate trend bullish')
+        else:            risk    += 1; reasons.append('Below MA50 — intermediate trend bearish')
+
+    # ── Extension risk (MA distance) ─────────────────────────────────────────
+    if ma_distance_pct is not None:
+        if ma_distance_pct > 20:
+            risk += 4; reasons.append(f'Price {ma_distance_pct:.1f}% above MA20 — parabolic, mean reversion imminent')
+        elif ma_distance_pct > 12:
+            risk += 3; reasons.append(f'Price {ma_distance_pct:.1f}% above MA20 — euphoric extension')
+        elif ma_distance_pct > 8:
+            risk += 2; reasons.append(f'Price {ma_distance_pct:.1f}% above MA20 — very extended')
+        elif ma_distance_pct > 5:
+            risk += 1; reasons.append(f'Price {ma_distance_pct:.1f}% above MA20 — extended but intact')
+
+    # ── Volume ────────────────────────────────────────────────────────────────
+    if volume_ratio is not None:
+        if volume_ratio >= 2.0:
+            bullish += 2; risk += 1
+            reasons.append(f'Volume {volume_ratio:.1f}x average — strong institutional activity')
+        elif volume_ratio >= 1.5:
+            bullish += 2
+            reasons.append(f'Volume {volume_ratio:.1f}x average — breakout signal')
+
+    # ── MA convergence ────────────────────────────────────────────────────────
     if ma_conv_label == 'Bullish Crossover Setup':
-        bullish += 2; reasons.append('Bullish MA crossover setup')
+        bullish += 2; reasons.append('Bullish MA crossover setup developing')
     elif ma_conv_label == 'Bearish Crossover Risk':
-        risk    += 1; reasons.append('Bearish MA crossover risk')
+        risk += 1; reasons.append('Bearish MA crossover risk')
+
+    # ── Relative strength ─────────────────────────────────────────────────────
     if relative_strength is not None:
-        if relative_strength > 10:   bullish += 2; reasons.append(f'+{relative_strength:.1f}% vs SPY — market leader')
-        elif relative_strength < -10: risk   += 1; reasons.append(f'{relative_strength:.1f}% vs SPY — lagging')
+        if relative_strength > 10:
+            bullish += 2; reasons.append(f'+{relative_strength:.1f}% vs SPY — market leader')
+        elif relative_strength < -10:
+            risk += 1; reasons.append(f'{relative_strength:.1f}% vs SPY — lagging the market')
+
+    # ── Dividend ──────────────────────────────────────────────────────────────
     if dividend_yield_pct is not None and dividend_yield_pct > 3.0:
-        bullish += 1; reasons.append(f'{dividend_yield_pct:.1f}% dividend yield')
-    if atr_pct is not None and atr_pct > 6:
-        risk += 2; reasons.append(f'ATR {atr_pct:.1f}%/day — large daily swings')
-    if market_cap is not None and market_cap < 1_000_000_000:
-        risk += 2; reasons.append('Small-cap — elevated risk')
+        bullish += 1; reasons.append(f'{dividend_yield_pct:.1f}% dividend yield — income support')
+
+    # ── ATR volatility risk ───────────────────────────────────────────────────
+    if atr_pct is not None:
+        if atr_pct > 7:
+            risk += 3; reasons.append(f'ATR {atr_pct:.1f}%/day — extreme volatility, position size carefully')
+        elif atr_pct > 5:
+            risk += 2; reasons.append(f'ATR {atr_pct:.1f}%/day — very high volatility')
+        elif atr_pct > 4:
+            risk += 1; reasons.append(f'ATR {atr_pct:.1f}%/day — elevated volatility')
+
+    # ── Market cap risk ───────────────────────────────────────────────────────
+    if market_cap is not None:
+        if market_cap < 1_000_000_000:
+            risk += 2; reasons.append('Small-cap — elevated structural risk')
+        elif market_cap < 5_000_000_000:
+            risk += 1; reasons.append('Mid-cap — moderate structural risk')
+
     return bullish, risk, bullish - risk, reasons
 
 # ── Category assignment ───────────────────────────────────────────────────────
@@ -319,31 +377,72 @@ def assign_categories(rsi, price, ma20, ma50, volume_ratio, dividend_yield_pct, 
 def generate_explanation(price, rsi, ma20, ma50, atr_pct, volume_ratio,
                          ma_distance_pct, relative_strength, dividend_yield_pct) -> str:
     parts = []
+
+    # Extension / pullback status (lead with this — most important)
     if ma_distance_pct is not None:
         d = abs(ma_distance_pct)
-        if ma_distance_pct > 8:    parts.append(f"Price is {d:.1f}% above MA20 — extended, watch for a pullback.")
-        elif ma_distance_pct > 3:  parts.append(f"Price is {d:.1f}% above MA20 with bullish trend intact.")
-        elif ma_distance_pct > -3: parts.append("Price is near MA20 — neutral positioning.")
-        elif ma_distance_pct > -8: parts.append(f"Price is {d:.1f}% below MA20 — in pullback territory.")
-        else:                      parts.append(f"Price is {d:.1f}% below MA20 — deeply extended downside.")
+        if ma_distance_pct > 20:
+            parts.append(f"Price has run {d:.1f}% above its 20-day MA — a parabolic extension that historically precedes sharp mean-reversion. Momentum may remain intact briefly, but risk/reward for new longs is poor.")
+        elif ma_distance_pct > 12:
+            parts.append(f"At {d:.1f}% above MA20, the stock is in euphoric territory. Momentum is real, but entering now means accepting elevated reversal risk. Consider waiting for a constructive pullback.")
+        elif ma_distance_pct > 8:
+            parts.append(f"Price is {d:.1f}% extended above its 20-day MA — solid momentum, but stretched. Optimal entry has likely passed; use caution chasing here.")
+        elif ma_distance_pct > 3:
+            parts.append(f"Trading {d:.1f}% above MA20 with trend intact — momentum is confirmed and the setup remains constructive.")
+        elif ma_distance_pct > -3:
+            parts.append("Price is consolidating near its 20-day MA — a neutral, healthy position that can resolve in either direction.")
+        elif ma_distance_pct > -8:
+            parts.append(f"Pulling back {d:.1f}% below MA20 — potential re-entry zone if the broader trend remains intact.")
+        else:
+            parts.append(f"Price is {d:.1f}% below MA20 in deeply oversold territory. Bounce candidates exist here, but confirm trend reversal before entering.")
+
+    # RSI momentum context
     if rsi is not None:
-        if rsi > 80:   parts.append(f"RSI {rsi:.1f} — overbought and overheated.")
-        elif rsi > 65: parts.append(f"RSI {rsi:.1f} confirms strong momentum.")
-        elif rsi < 30: parts.append(f"RSI {rsi:.1f} — deeply oversold, mean reversion possible.")
-        elif rsi < 40: parts.append(f"RSI {rsi:.1f} — momentum weakening.")
+        if rsi > 80:
+            parts.append(f"RSI at {rsi:.1f} signals the stock is severely overbought — momentum is strong but the probability of a near-term stall or reversal is significantly elevated.")
+        elif rsi > 70:
+            parts.append(f"RSI of {rsi:.1f} confirms overbought conditions. The trend is strong but warrants caution on new entries.")
+        elif rsi > 60:
+            parts.append(f"RSI at {rsi:.1f} supports a healthy uptrend with room to run before overbought territory.")
+        elif rsi < 30:
+            parts.append(f"RSI of {rsi:.1f} is deeply oversold — a technical bounce is plausible, but avoid early entries until price stabilizes.")
+        elif rsi < 45:
+            parts.append(f"RSI at {rsi:.1f} shows fading momentum — trend confirmation needed before committing.")
+
+    # Volatility context
     if atr_pct is not None:
-        if atr_pct > 5:     parts.append(f"ATR {atr_pct:.1f}%/day — large intraday swings, well-suited for options plays.")
-        elif atr_pct > 3:   parts.append(f"ATR {atr_pct:.1f}%/day — elevated volatility, size positions accordingly.")
-        elif atr_pct < 1.5: parts.append(f"ATR {atr_pct:.1f}%/day — low volatility, conservative swing candidate.")
+        if atr_pct >= 7:
+            parts.append(f"Extreme ATR of {atr_pct:.1f}%/day demands strict position sizing — this stock moves violently and requires wider stops.")
+        elif atr_pct >= 5:
+            parts.append(f"ATR of {atr_pct:.1f}%/day is elevated — well-suited for options strategies that profit from high implied volatility.")
+        elif atr_pct >= 3:
+            parts.append(f"ATR of {atr_pct:.1f}%/day reflects moderate volatility — size positions accordingly and avoid tight stops.")
+        elif atr_pct < 1.5:
+            parts.append(f"Low ATR of {atr_pct:.1f}%/day signals a calm, range-bound environment — options are relatively cheap here.")
+
+    # Volume confirmation
     if volume_ratio is not None:
-        if volume_ratio >= 2.0:   parts.append(f"Volume {volume_ratio:.1f}x average — strong institutional activity.")
-        elif volume_ratio >= 1.5: parts.append(f"Volume {volume_ratio:.1f}x average — notable breakout signal.")
+        if volume_ratio >= 2.5:
+            parts.append(f"Volume running {volume_ratio:.1f}x the 20-day average — exceptional institutional interest elevates conviction.")
+        elif volume_ratio >= 1.5:
+            parts.append(f"Volume at {volume_ratio:.1f}x average confirms the move — institutional participation adds credibility to the signal.")
+        elif volume_ratio < 0.7:
+            parts.append(f"Below-average volume ({volume_ratio:.1f}x) reduces signal confidence — low-volume moves are more likely to fade.")
+
+    # Relative strength vs market
     if relative_strength is not None:
-        if relative_strength > 15:   parts.append(f"Outperforming SPY by {relative_strength:.1f}% over 20 days.")
-        elif relative_strength < -15: parts.append(f"Underperforming SPY by {abs(relative_strength):.1f}% over 20 days.")
+        if relative_strength > 15:
+            parts.append(f"Outperforming SPY by {relative_strength:.1f}% over 20 days — a dominant market leader.")
+        elif relative_strength > 5:
+            parts.append(f"Outperforming SPY by {relative_strength:.1f}% — relative strength supports the bullish case.")
+        elif relative_strength < -15:
+            parts.append(f"Underperforming SPY by {abs(relative_strength):.1f}% — structural weakness warrants caution.")
+
+    # Income/dividend context
     if dividend_yield_pct and dividend_yield_pct > 3:
-        parts.append(f"{dividend_yield_pct:.1f}% dividend yield supports income thesis.")
-    return " ".join(parts) if parts else "No significant signals detected."
+        parts.append(f"A {dividend_yield_pct:.1f}% dividend yield provides a meaningful income floor, reducing downside risk for longer-term holders.")
+
+    return " ".join(parts) if parts else "Insufficient data to generate a narrative summary."
 
 # ── Volatility compression (squeeze) detection ───────────────────────────────
 
@@ -438,6 +537,56 @@ def assign_percentile_rank(score: int, all_scores: list[int]) -> tuple[int, str]
     else: label = '🔻 Below Avg'
     return rank, label
 
+def assign_confidence(bullish_score: int, risk_score: int, rsi, atr_pct, volume_ratio,
+                      relative_strength, ma_distance_pct, squeeze: bool) -> int:
+    """Compute confidence % (10–98) based on signal alignment and reliability."""
+    base = 50
+
+    # Signal alignment
+    if bullish_score >= 10: base += 20
+    elif bullish_score >= 7: base += 12
+    elif bullish_score >= 4: base += 6
+
+    # Risk penalty
+    if risk_score >= 8:  base -= 30
+    elif risk_score >= 6: base -= 20
+    elif risk_score >= 4: base -= 12
+    elif risk_score >= 2: base -= 6
+
+    # Volume confirmation
+    if volume_ratio is not None:
+        if volume_ratio >= 2.0:   base += 10
+        elif volume_ratio >= 1.5: base += 5
+        elif volume_ratio < 0.7:  base -= 10
+
+    # RSI — extremes reduce confidence
+    if rsi is not None:
+        if rsi > 85 or rsi < 15:     base -= 15
+        elif rsi > 78 or rsi < 25:   base -= 8
+        elif 48 <= rsi <= 72:         base += 5
+
+    # ATR — extreme vol reduces confidence
+    if atr_pct is not None:
+        if atr_pct > 7:          base -= 15
+        elif atr_pct > 5:        base -= 8
+        elif 2.0 <= atr_pct <= 4: base += 5
+
+    # Relative strength vs SPY
+    if relative_strength is not None:
+        if relative_strength > 10:   base += 8
+        elif relative_strength < -10: base -= 8
+
+    # Extension risk
+    if ma_distance_pct is not None:
+        if ma_distance_pct > 20:   base -= 20
+        elif ma_distance_pct > 12: base -= 12
+        elif ma_distance_pct > 8:  base -= 5
+
+    # Squeeze = coiled spring → high confidence for expansion play
+    if squeeze: base += 8
+
+    return max(10, min(98, base))
+
 # ── Main scan function ────────────────────────────────────────────────────────
 
 def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False):
@@ -488,8 +637,11 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False):
         ma_distance_pct, ma_distance_label = calculate_ma_distance(price, ma20)
         risk_profile                       = assign_risk_profile(atr_pct, market_cap, dividend_yield_pct, rsi, price, ma20, ma50)
         bullish_score, risk_score, composite_score, reasons = calculate_weighted_score(
-            rsi, price, ma20, ma50, volume_ratio, dividend_yield_pct, atr_pct, market_cap, relative_strength, ma_conv_label)
-        categories  = assign_categories(rsi, price, ma20, ma50, volume_ratio, dividend_yield_pct, atr_pct,
+            rsi, price, ma20, ma50, volume_ratio, dividend_yield_pct, atr_pct, market_cap,
+            relative_strength, ma_conv_label, ma_distance_pct=ma_distance_pct)
+        confidence   = assign_confidence(bullish_score, risk_score, rsi, atr_pct, volume_ratio,
+                                         relative_strength, ma_distance_pct, squeeze)
+        categories   = assign_categories(rsi, price, ma20, ma50, volume_ratio, dividend_yield_pct, atr_pct,
                                         market_cap, relative_strength, ma_conv_label,
                                         ma_distance_pct=ma_distance_pct, squeeze=squeeze)
         trade_type   = assign_trade_type(rsi, atr_pct, volume_ratio, dividend_yield_pct,
@@ -526,6 +678,7 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False):
             'bullish_score':  bullish_score,
             'risk_score':     risk_score,
             'score':          composite_score,
+            'confidence':     confidence,
             'categories':     categories,
             'reasons':        '; '.join(reasons),
             'explanation':    explanation,

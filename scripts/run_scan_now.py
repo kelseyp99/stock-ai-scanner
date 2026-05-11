@@ -30,7 +30,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / 'backend'))
 
-from app.services.scanner import scan_ticker, assign_percentile_rank
+from app.services.scanner import scan_ticker, assign_percentile_rank, assign_confidence
 from app.services.index_universe_service import get_universe_tickers
 from app.services.ai_summary_service import generate_scan_summary
 
