@@ -10,9 +10,9 @@ type FilterId = 'all' | 'momentum' | 'oversold' | 'low-vol' | 'dividend' | 'opti
 // ─────────────────────────────────────────────────────────────────────────────
 function Tooltip({ text, children }: { text: string; children: React.ReactNode }) {
   return (
-    <span className="relative group cursor-help">
+    <span className="relative group/tip cursor-help">
       {children}
-      <span className="pointer-events-none absolute z-50 left-1/2 -translate-x-1/2 bottom-full mb-2 w-52 text-xs text-white bg-slate-800 rounded-lg px-2.5 py-1.5 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-normal text-center">
+      <span className="pointer-events-none absolute z-50 left-1/2 -translate-x-1/2 bottom-full mb-2 w-52 text-xs text-white bg-slate-800 rounded-lg px-2.5 py-1.5 shadow-xl opacity-0 group-hover/tip:opacity-100 transition-opacity whitespace-normal text-center">
         {text}
       </span>
     </span>
