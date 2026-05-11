@@ -91,6 +91,66 @@ def _sort_results(results: list) -> list:
     )
 
 
+# ── Diversity-aware top-N selection ──────────────────────────────────────────
+# Ensures at least BUCKET_MIN picks from each meaningful category, provided
+# they clear MIN_BUCKET_SCORE, before filling remaining slots by raw score.
+#
+# Buckets and their detection predicates:
+#   oversold      — RSI < 38 or trade_type = Mean Reversion Setup
+#   squeeze       — squeeze flag or Volatility Compression category
+#   breakout      — trade_type in (Breakout, Speculative Breakout, Vol Expansion)
+#   dividend      — Dividend category
+#   news_catalyst — news_boost >= 2 (extraordinary positive news)
+#
+_BUCKETS = [
+    ('oversold',      lambda r: (r.get('rsi') or 99) < 38 or r.get('trade_type') == 'Mean Reversion Setup'),
+    ('squeeze',       lambda r: bool(r.get('squeeze')) or '🌀 Volatility Compression' in (r.get('categories') or [])),
+    ('breakout',      lambda r: r.get('trade_type') in ('Breakout Trade', 'Speculative Breakout', 'Volatility Expansion')),
+    ('dividend',      lambda r: 'Dividend' in (r.get('categories') or [])),
+    ('news_catalyst', lambda r: (r.get('news_boost') or 0) >= 2),
+]
+BUCKET_MIN       = 2   # guaranteed slots per bucket (if candidates exist above threshold)
+MIN_BUCKET_SCORE = 2   # minimum composite score to qualify for a reserved slot
+
+
+def _build_diverse_top(results: list, n: int = 25) -> list:
+    """
+    Phase 1 — fill up to BUCKET_MIN reserved slots per bucket (score >= MIN_BUCKET_SCORE).
+    Phase 2 — fill remaining slots with the highest-scoring un-selected stocks.
+    Phase 3 — sort the final set by score descending.
+    """
+    sorted_all = _sort_results(results)
+    selected: dict[str, dict] = {}   # ticker → result
+
+    # Phase 1: reserved bucket slots
+    for _name, pred in _BUCKETS:
+        candidates = [
+            r for r in sorted_all
+            if pred(r) and (r.get('score') or 0) >= MIN_BUCKET_SCORE
+        ]
+        added = 0
+        for r in candidates:
+            if added >= BUCKET_MIN:
+                break
+            t = r['ticker']
+            if t not in selected:
+                r = dict(r)           # don't mutate original
+                r['diversity_slot'] = _name   # tag which bucket reserved this slot
+                selected[t] = r
+                added += 1
+
+    # Phase 2: fill remaining slots by pure score
+    for r in sorted_all:
+        if len(selected) >= n:
+            break
+        t = r['ticker']
+        if t not in selected:
+            selected[t] = r
+
+    # Phase 3: re-sort by score
+    return _sort_results(list(selected.values()))[:n]
+
+
 def scan_universe(universe_id: str, max_tickers: int, max_workers: int = 12) -> list:
     """Fetch universe tickers and scan them in parallel."""
     log.info(f'[{universe_id}] Fetching tickers…')
@@ -215,17 +275,25 @@ def main():
         log.info(f'[{uid}] Finished in {elapsed}s')
 
     # ── Global top across all universes ───────────────────────────────────────
-    global_top = _sort_results(all_results)[:args.top]
+    global_top = _build_diverse_top(all_results, n=args.top)
 
     # ── Assign percentile ranks across the full result set ───────────────────
     all_scores = [r.get('score') or 0 for r in all_results]
     for r in all_results:
         r['percentile_rank'], r['percentile_label'] = assign_percentile_rank(r.get('score') or 0, all_scores)
-    # Rebuild global_top after enrichment (same slice, already sorted)
-    global_top = _sort_results(all_results)[:args.top]
+    # Rebuild global_top after enrichment (percentile labels now populated)
+    global_top = _build_diverse_top(all_results, n=args.top)
 
     log.info('─' * 60)
     log.info(f'Total results across all universes: {len(all_results)}')
+
+    # Log diversity breakdown
+    bucket_counts = {}
+    for r in global_top:
+        slot = r.get('diversity_slot', 'open')
+        bucket_counts[slot] = bucket_counts.get(slot, 0) + 1
+    log.info('Diversity slots: ' + '  '.join(f'{k}={v}' for k, v in sorted(bucket_counts.items())))
+
     log.info(f'Generating AI summary for top {len(global_top)} stocks…')
 
     try:

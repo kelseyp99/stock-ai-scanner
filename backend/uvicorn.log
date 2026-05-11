@@ -71,3 +71,55 @@ INFO:     Finished server process [39902]
 INFO:     Started server process [39940]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
+INFO:     127.0.0.1:61568 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61570 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61583 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61585 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61599 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61601 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61617 - "GET /news/XYZ?max=6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61617 - "GET /news/XYZ?max=6 HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'scripts/run_scan_now.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [39940]
+/Users/tinman/Projects/stock-ai-scanner/.venv/lib/python3.13/site-packages/pydantic/_internal/_config.py:386: UserWarning: Valid config keys have changed in V2:
+* 'orm_mode' has been renamed to 'from_attributes'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [45066]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'scripts/run_scan_now.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [45066]
+/Users/tinman/Projects/stock-ai-scanner/.venv/lib/python3.13/site-packages/pydantic/_internal/_config.py:386: UserWarning: Valid config keys have changed in V2:
+* 'orm_mode' has been renamed to 'from_attributes'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [45113]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'scripts/run_scan_now.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [45113]
+/Users/tinman/Projects/stock-ai-scanner/.venv/lib/python3.13/site-packages/pydantic/_internal/_config.py:386: UserWarning: Valid config keys have changed in V2:
+* 'orm_mode' has been renamed to 'from_attributes'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [45149]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'scripts/run_scan_now.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [45149]
+/Users/tinman/Projects/stock-ai-scanner/.venv/lib/python3.13/site-packages/pydantic/_internal/_config.py:386: UserWarning: Valid config keys have changed in V2:
+* 'orm_mode' has been renamed to 'from_attributes'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [49444]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
