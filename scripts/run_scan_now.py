@@ -23,7 +23,7 @@ import argparse
 import time
 import logging
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait, FIRST_COMPLETED
 from pathlib import Path
 
 # ── Path setup: allow imports from backend/app ────────────────────────────────
@@ -78,21 +78,32 @@ def scan_universe(universe_id: str, max_tickers: int, max_workers: int = 12) -> 
     log.info(f'[{universe_id}] Scanning {len(tickers)} tickers with {max_workers} workers…')
 
     results = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    executor = ThreadPoolExecutor(max_workers=max_workers)
+    try:
         futures = {executor.submit(scan_ticker, t, 120): t for t in tickers}
-        done = 0
-        for future in as_completed(futures):
-            done += 1
-            ticker = futures[future]
-            try:
-                r = future.result()
-                if r:
-                    r['universe'] = universe_id
-                    results.append(r)
-            except Exception as exc:
-                log.debug(f'[{universe_id}] {ticker} error: {exc}')
-            if done % 25 == 0 or done == len(tickers):
-                log.info(f'[{universe_id}]   {done}/{len(tickers)} scanned, {len(results)} hits so far…')
+        done_count = 0
+        pending = set(futures.keys())
+        while pending:
+            finished, pending = wait(pending, timeout=60, return_when=FIRST_COMPLETED)
+            if not finished:
+                # No future completed in 60s — all workers are stuck; bail out
+                log.warning(f'[{universe_id}] No progress for 60s — abandoning {len(pending)} stuck tickers')
+                break
+            for future in finished:
+                done_count += 1
+                ticker = futures[future]
+                try:
+                    r = future.result(timeout=1)
+                    if r:
+                        r['universe'] = universe_id
+                        results.append(r)
+                except Exception as exc:
+                    log.debug(f'[{universe_id}] {ticker} error: {exc}')
+                if done_count % 25 == 0 or done_count == len(tickers):
+                    log.info(f'[{universe_id}]   {done_count}/{len(tickers)} scanned, {len(results)} hits so far…')
+    finally:
+        # cancel_futures=True + wait=False lets us abandon stuck threads immediately
+        executor.shutdown(wait=False, cancel_futures=True)
 
     log.info(f'[{universe_id}] Done — {len(results)} results.')
     return results

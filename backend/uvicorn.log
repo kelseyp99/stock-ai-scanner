@@ -223,3 +223,12 @@ INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
 INFO:     127.0.0.1:58330 - "GET /health HTTP/1.1" 200 OK
 INFO:     127.0.0.1:58335 - "GET /health HTTP/1.1" 200 OK
 INFO:     127.0.0.1:58348 - "POST /scheduler/settings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58467 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58469 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58477 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58479 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60210 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60212 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60219 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60221 - "GET /scan/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60287 - "GET /scheduler/settings HTTP/1.1" 200 OK

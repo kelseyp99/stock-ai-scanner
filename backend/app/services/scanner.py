@@ -589,11 +589,27 @@ def assign_confidence(bullish_score: int, risk_score: int, rsi, atr_pct, volume_
 
 # ── Main scan function ────────────────────────────────────────────────────────
 
-def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False):
-    """Scan one ticker: fetch → indicators → weighted score → categories → explanation."""
+def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, session=None):
+    """Scan one ticker: fetch → indicators → weighted score → categories → explanation.
+    Pass a requests.Session (e.g. with proxy) via `session` to override the default."""
     debug_info = {'ticker': ticker, 'fetched_rows': 0, 'has_close': False, 'has_volume': False, 'exception': None}
     try:
-        data = yf.download(ticker, period=f"{period_days}d", progress=False, auto_adjust=True)
+        import threading as _threading
+        _dl: dict = {}
+        def _do_download():
+            try:
+                kwargs = dict(period=f"{period_days}d", progress=False, auto_adjust=True)
+                if session is not None:
+                    kwargs['session'] = session
+                _dl['data'] = yf.download(ticker, **kwargs)
+            except Exception as e:
+                _dl['error'] = e
+        _t = _threading.Thread(target=_do_download, daemon=True)
+        _t.start()
+        _t.join(timeout=30)  # hard 30s cap on yf.download
+        if 'data' not in _dl:
+            return ({'ticker': ticker, 'ok': False, 'error': 'download timeout', 'debug': debug_info} if debug else None)
+        data = _dl['data']
         if data is None or data.empty:
             return ({'ticker': ticker, 'ok': False, 'error': 'no data', 'debug': debug_info} if debug else None)
         debug_info['fetched_rows'] = int(data.shape[0])
@@ -613,7 +629,17 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False):
         vol_label    = atr_info['volatility_label']
 
         try:
-            info        = yf.Ticker(ticker).info
+            import threading
+            _info_result = {}
+            def _fetch_info():
+                try:
+                    _info_result['data'] = yf.Ticker(ticker).info
+                except Exception:
+                    _info_result['data'] = {}
+            t = threading.Thread(target=_fetch_info, daemon=True)
+            t.start()
+            t.join(timeout=15)   # hard 15s cap on .info — it hangs on delisted/bad tickers
+            info        = _info_result.get('data', {})
             raw_yield   = info.get('dividendYield', 0)
             market_cap  = info.get('marketCap', None)
             implied_vol = info.get('impliedVolatility', None)

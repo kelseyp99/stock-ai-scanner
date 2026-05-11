@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     default_timezone: str = 'America/New_York'
     max_concurrent_scheduled_scans: int = 1
 
+    # DataImpulse proxy (optional — for failed-ticker retries)
+    dataimpulse_user: str = ''
+    dataimpulse_pass: str = ''
+    dataimpulse_host: str = 'gw.dataimpulse.com'
+    dataimpulse_port: int  = 823
+
     class Config:
         env_file = '.env'
         env_file_encoding = 'utf-8'
