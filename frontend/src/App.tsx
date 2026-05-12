@@ -28,7 +28,7 @@ export default function App(){
   const [view, setView] = React.useState('dashboard')
   const logoHeight = 360
   const logoMaxHeight = 420
-  const headerHeight = 120
+  const headerHeight = 330
 
   return (
     <>
@@ -38,14 +38,9 @@ export default function App(){
           <div style={{display:'flex', alignItems:'center', position:'relative', height: '100%'}}>
             <div style={{display:'inline-block', marginRight:16, position:'relative', zIndex:1}}>
               <img
-                src="/theta-forge.png"
+                src="/ThetaBrew.png"
                 alt="ThetaForge"
-                style={{height: logoHeight, maxHeight: logoMaxHeight, width:'auto', display:'block'}}
-                onError={(e) => {
-                  const img = e.currentTarget as HTMLImageElement
-                  img.onerror = null
-                  img.src = '/theta-forge.svg'
-                }}
+                style={{height: 300, width:'auto', display:'block', borderRadius: 12, boxShadow:'0 4px 16px rgba(247,150,0,0.25)'}}
               />
             </div>
           </div>

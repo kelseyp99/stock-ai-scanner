@@ -30,19 +30,17 @@ export default function Header(){
       }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <img
-            src="/logo.png"
+            src={`/ThetaBrew.png?v=${Date.now()}`}
             alt="ThetaForge Logo"
             style={{
-              height: 220,
-              width: 220,
+              height: 110,
+              width: 'auto',
               verticalAlign: 'middle',
-              marginRight: 24,
-              borderRadius: '50%',
-              boxShadow: '0 6px 32px rgba(247,150,0,0.45), 0 2px 8px rgba(0,0,0,0.25)',
-              border: '4px solid #f7a000',
-              background: 'transparent',
-              objectFit: 'contain',
+              marginRight: 28,
+              borderRadius: 16,
+              boxShadow: '0 4px 20px rgba(247,150,0,0.30), 0 2px 8px rgba(0,0,0,0.15)',
               display: 'block',
+              objectFit: 'contain',
             }}
           />
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
