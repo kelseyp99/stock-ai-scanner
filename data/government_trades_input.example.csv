@@ -1,0 +1,3 @@
+ticker,member,chamber,transaction_type,amount_range,trade_date,disclosure_date,asset,source_url,source
+NVDA,Example Member,House,Purchase,"$15,001 - $50,000",2026-05-01,2026-05-12,NVIDIA Corporation (NVDA),https://disclosures-clerk.house.gov/public_disc/ptr-pdfs/2026/example.pdf,house_ptr
+AAPL,Example Senator,Senate,Sale,"$1,001 - $15,000",2026-04-20,2026-05-05,Apple Inc. (AAPL),https://efdsearch.senate.gov/search/view/ptr/example/,senate_efd

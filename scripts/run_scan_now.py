@@ -33,6 +33,7 @@ sys.path.insert(0, str(ROOT / 'backend'))
 from app.services.scanner import scan_ticker, assign_percentile_rank, assign_confidence
 from app.services.index_universe_service import get_universe_tickers
 from app.services.ai_summary_service import generate_scan_summary
+from app.services.news_signal_service import fetch_and_score_news
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 # force=True overrides any root-logger config set by yfinance on import
@@ -185,7 +186,8 @@ def _build_diverse_top(results: list, n: int = 25) -> list:
     return ordered
 
 
-def scan_universe(universe_id: str, max_tickers: int, max_workers: int = 12) -> list:
+def scan_universe(universe_id: str, max_tickers: int, max_workers: int = 12,
+                  fetch_news: bool = False) -> list:
     """Fetch universe tickers and scan them in parallel."""
     log.info(f'[{universe_id}] Fetching tickers…')
     tickers = get_universe_tickers(universe_id)
@@ -199,7 +201,7 @@ def scan_universe(universe_id: str, max_tickers: int, max_workers: int = 12) -> 
     results = []
     executor = ThreadPoolExecutor(max_workers=max_workers)
     try:
-        futures = {executor.submit(scan_ticker, t, 120): t for t in tickers}
+        futures = {executor.submit(scan_ticker, t, 120, False, None, fetch_news): t for t in tickers}
         done_count = 0
         pending = set(futures.keys())
         while pending:
@@ -226,6 +228,67 @@ def scan_universe(universe_id: str, max_tickers: int, max_workers: int = 12) -> 
 
     log.info(f'[{universe_id}] Done — {len(results)} results.')
     return results
+
+
+def _select_news_candidates(results: list[dict], limit: int) -> list[dict]:
+    """Pick high-value tickers for the focused news pass."""
+    if limit <= 0:
+        return []
+    selected: dict[str, dict] = {}
+
+    for row in _sort_results(results)[:limit]:
+        ticker = row.get('ticker')
+        if ticker:
+            selected[ticker] = row
+
+    # Make room for lower-scoring but interesting setups that often need news context.
+    per_bucket = max(2, min(10, limit // 10))
+    for _name, pred in _BUCKETS:
+        for row in [r for r in _sort_results(results) if pred(r)][:per_bucket]:
+            ticker = row.get('ticker')
+            if ticker and len(selected) < limit:
+                selected[ticker] = row
+
+    return list(selected.values())[:limit]
+
+
+def _enrich_finalist_news(results: list[dict], limit: int, max_workers: int) -> None:
+    """Fetch and score news only for finalist candidates, mutating result rows."""
+    candidates = _select_news_candidates(results, limit)
+    if not candidates:
+        log.info('News finalist pass skipped.')
+        return
+
+    log.info(f'Fetching news for {len(candidates)} finalist candidates with {max_workers} workers…')
+
+    def fetch(row: dict) -> tuple[dict, dict]:
+        ticker = row.get('ticker')
+        try:
+            return row, fetch_and_score_news(ticker)
+        except Exception as e:
+            log.debug(f'[news] {ticker} failed: {e}')
+            return row, {'news_boost': 0, 'news_catalyst': None, 'news_headline': None, 'news_articles': []}
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(fetch, row) for row in candidates]
+        for future in as_completed(futures):
+            row, news = future.result()
+            old_boost = row.get('news_boost') or 0
+            new_boost = news.get('news_boost') or 0
+            row['news_boost'] = new_boost
+            row['news_catalyst'] = news.get('news_catalyst')
+            row['news_headline'] = news.get('news_headline')
+            row['news_articles'] = news.get('news_articles') or []
+            if new_boost != old_boost:
+                row['score'] = (row.get('score') or 0) + new_boost - old_boost
+            if new_boost and row.get('news_catalyst'):
+                reasons = row.get('reasons') or ''
+                addition = f"News catalyst: {row['news_catalyst']}"
+                row['reasons'] = f"{reasons}; {addition}" if reasons else addition
+
+    hits = sum(1 for row in candidates if row.get('news_articles'))
+    catalysts = sum(1 for row in candidates if row.get('news_catalyst'))
+    log.info(f'News finalist pass complete — {hits} with articles, {catalysts} catalysts.')
 
 
 def main():
@@ -260,6 +323,20 @@ def main():
         metavar='URL',
         help='POST scan results to this URL when done (e.g. https://your-host/scan/ingest). '
              'Set SCAN_INGEST_TOKEN env var for Bearer auth.',
+    )
+    parser.add_argument(
+        '--news-finalists', type=int, default=100,
+        metavar='N',
+        help='Fetch live news only for the top N finalist candidates (default: 100; 0 disables news).',
+    )
+    parser.add_argument(
+        '--news-workers', type=int, default=6,
+        metavar='N',
+        help='Parallel workers for finalist news fetches (default: 6).',
+    )
+    parser.add_argument(
+        '--news-all', action='store_true',
+        help='Fetch news during every ticker scan. Slower and more likely to hit yfinance rate limits.',
     )
     args = parser.parse_args()
 
@@ -296,7 +373,7 @@ def main():
 
     for uid in args.universes:
         t0 = time.time()
-        res = scan_universe(uid, max_tickers, args.workers)
+        res = scan_universe(uid, max_tickers, args.workers, fetch_news=args.news_all)
         elapsed = round(time.time() - t0, 1)
         sorted_res = _sort_results(res)
         universe_stats[uid] = {
@@ -308,8 +385,9 @@ def main():
         all_results.extend(sorted_res)
         log.info(f'[{uid}] Finished in {elapsed}s')
 
-    # ── Global top across all universes ───────────────────────────────────────
-    global_top = _build_diverse_top(all_results, n=args.top)
+    # ── Focused news pass before final ranking ───────────────────────────────
+    if not args.news_all:
+        _enrich_finalist_news(all_results, args.news_finalists, args.news_workers)
 
     # ── Assign percentile ranks across the full result set ───────────────────
     all_scores = [r.get('score') or 0 for r in all_results]

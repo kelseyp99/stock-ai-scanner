@@ -53,6 +53,12 @@ const CAT_CONFIG: Record<string, { icon: string; cls: string; priority: number }
   'High Volatility':           { icon: '⚡', cls: 'bg-red-400 text-white',                                   priority: 3 },
   'Dividend':                  { icon: '💰', cls: 'bg-yellow-400 text-gray-900',                             priority: 3 },
   'Market Laggard':            { icon: '🐢', cls: 'bg-slate-400 text-white',                                 priority: 3 },
+  'Earnings Soon':             { icon: '📅', cls: 'bg-orange-100 text-orange-800 font-semibold ring-1 ring-orange-200', priority: 2 },
+  'Institutional Accumulation': { icon: '🏦', cls: 'bg-emerald-100 text-emerald-800 font-semibold ring-1 ring-emerald-200', priority: 2 },
+  'Institutional Distribution': { icon: '🏦', cls: 'bg-red-100 text-red-800 font-semibold ring-1 ring-red-200', priority: 2 },
+  'Government Buying':         { icon: '🏛️', cls: 'bg-cyan-100 text-cyan-800 font-semibold ring-1 ring-cyan-200', priority: 2 },
+  'Government Cluster Buy':    { icon: '🏛️', cls: 'bg-cyan-600 text-white font-bold ring-2 ring-cyan-200', priority: 1 },
+  'Government Selling':        { icon: '🏛️', cls: 'bg-rose-100 text-rose-800 font-semibold ring-1 ring-rose-200', priority: 2 },
   'Bullish Crossover Setup':   { icon: '🔀', cls: 'bg-teal-500 text-white',                                  priority: 3 },
   'Bearish Crossover Risk':    { icon: '🔁', cls: 'bg-amber-600 text-white',                                 priority: 3 },
   'MA Converging':             { icon: '〰️', cls: 'bg-sky-400 text-white',                                   priority: 4 },
@@ -68,6 +74,8 @@ const TRADE_TYPE_CONFIG: Record<string, { cls: string; icon: string }> = {
   'Speculative Breakout': { cls: 'bg-pink-100 text-pink-800',     icon: '🎲' },
   'Volatility Expansion': { cls: 'bg-indigo-100 text-indigo-800', icon: '🌀' },
   'Low Volatility Trend': { cls: 'bg-teal-100 text-teal-800',     icon: '��️' },
+  'Earnings Volatility Play': { cls: 'bg-orange-100 text-orange-800', icon: '📅' },
+  'Political Momentum': { cls: 'bg-cyan-100 text-cyan-800', icon: '🏛️' },
 }
 
 const SETUP_QUALITY_CONFIG: Record<string, { cls: string; desc: string }> = {
@@ -212,6 +220,49 @@ function AtrBlock({ atrPct, atrDollar }: { atrPct: number | null; atrDollar?: nu
     atrPct >= 1.5 ? `ATR ${atrPct.toFixed(1)}%/day${dollar} — moderate volatility. Typical for mid-cap stocks. Weekly range around ${(atrPct*5).toFixed(0)}% — manageable with standard position sizing.` :
                     `ATR ${atrPct.toFixed(1)}%/day${dollar} — low volatility. Stable mover. Options will be cheap. Good for covered calls or longer-term trend holds.`
   return <MetricBlock label="ATR%" value={`${atrPct.toFixed(1)}%`} tier={tier} narrative={narrative} valueClass={cls} labelTip={labelTip} valueTip={valueTip} />
+}
+
+function EarningsBlock({ date, days }: { date?: string | null; days?: number | null }) {
+  const labelTip = 'Upcoming earnings date — near-term earnings can create gap risk and post-event IV crush. Directional options are riskier inside the final week before the report.'
+  if (!date || days == null) return <MetricBlock label="Earnings" value="—" labelTip={labelTip} />
+  const soon = days >= 0 && days <= 7
+  const tier = days < 0 ? 'Reported' : days === 0 ? 'Today' : days <= 7 ? 'This week' : days <= 21 ? 'Soon' : 'Later'
+  const cls = soon ? 'text-orange-600' : days >= 0 && days <= 21 ? 'text-amber-600' : 'text-slate-700'
+  const value = days < 0 ? `${Math.abs(days)}d ago` : days === 0 ? 'Today' : `${days}d`
+  const valueTip = days >= 0
+    ? `Next earnings date: ${date}. ${days <= 7 ? 'Event risk is high; consider defined-risk or volatility-aware options structures.' : 'Watch for implied volatility to rise as the date approaches.'}`
+    : `Most recent earnings date: ${date}.`
+  return <MetricBlock label="Earnings" value={value} tier={tier} valueClass={cls} labelTip={labelTip} valueTip={valueTip} />
+}
+
+function InstitutionBlock({ delta, trend }: { delta?: number | null; trend?: string | null }) {
+  const labelTip = 'Institutional ownership change — quarter-over-quarter change from parsed 13F ownership snapshots. Positive values suggest accumulation; negative values suggest distribution.'
+  if (delta == null) return <MetricBlock label="Inst" value="—" labelTip={labelTip} />
+  const sign = delta > 0 ? '+' : ''
+  const cls = delta >= 2 ? 'text-emerald-600' : delta <= -2 ? 'text-red-600' : 'text-slate-700'
+  const valueTip = `${sign}${delta.toFixed(1)}% institutional ownership change. ${trend || 'Stable'} based on the configured ownership data source.`
+  return <MetricBlock label="Inst" value={`${sign}${delta.toFixed(1)}%`} tier={trend || 'Stable'} valueClass={cls} labelTip={labelTip} valueTip={valueTip} />
+}
+
+function GovernmentTradeBlock({ signal, buyCount, sellCount, netAmount, members }: {
+  signal?: string | null
+  buyCount?: number | null
+  sellCount?: number | null
+  netAmount?: number | null
+  members?: string[] | null
+}) {
+  const labelTip = 'Government trade disclosures — recent STOCK Act or senior-official disclosures normalized from the configured provider/cache. These filings are delayed, so this is a confirmation signal, not a primary thesis.'
+  const buys = buyCount ?? 0
+  const sells = sellCount ?? 0
+  if (!signal && buys === 0 && sells === 0) return <MetricBlock label="Gov" value="—" labelTip={labelTip} />
+  const net = netAmount ?? 0
+  const amount = Math.abs(net) >= 1_000_000 ? `$${(Math.abs(net) / 1_000_000).toFixed(1)}M` : `$${Math.abs(net).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+  const cls = signal === 'Government Cluster Buy' ? 'text-cyan-700' : signal === 'Government Buying' ? 'text-emerald-600' : signal === 'Government Selling' ? 'text-red-600' : 'text-slate-700'
+  const tier = signal === 'Government Cluster Buy' ? 'Cluster buy' : signal === 'Government Buying' ? 'Net buy' : signal === 'Government Selling' ? 'Net sell' : `${buys}B/${sells}S`
+  const value = net < 0 ? `-${amount}` : amount
+  const memberText = members?.length ? ` Members: ${members.slice(0, 3).join(', ')}.` : ''
+  const valueTip = `${signal || 'Government disclosure activity'}: ${buys} buys, ${sells} sells, net ${value}.${memberText} Use lightly because disclosures can lag the actual trade.`
+  return <MetricBlock label="Gov" value={value} tier={tier} valueClass={cls} labelTip={labelTip} valueTip={valueTip} />
 }
 
 function MADistBlock({ pct, label }: { pct: number | null; label: string | null }) {
@@ -377,7 +428,7 @@ function ActionZonesPanel({ row }: { row: any }) {
 // Options interpretation card
 // ─────────────────────────────────────────────────────────────────────────────
 function OptionsInterpretationCard({ row }: { row: any }) {
-  const { atr_pct, atr_dollar, expected_move_pct, price, rsi, squeeze, trade_type, categories, ma_distance_pct } = row
+  const { atr_pct, atr_dollar, expected_move_pct, price, rsi, squeeze, trade_type, categories, ma_distance_pct, days_to_earnings, institutional_ownership_delta_pct, gov_trade_signal } = row
   const cats: string[]  = categories ?? []
   const isHighVol       = atr_pct != null && atr_pct >= 5
   const isLowVol        = atr_pct != null && atr_pct < 2
@@ -386,13 +437,35 @@ function OptionsInterpretationCard({ row }: { row: any }) {
   const hasSqueeze      = squeeze === true || cats.includes('🌀 Volatility Compression')
   const isParabolic     = (ma_distance_pct ?? 0) > 20
   const isEuphoric      = !isParabolic && (ma_distance_pct ?? 0) > 12
+  const earningsSoon    = days_to_earnings != null && days_to_earnings >= 0 && days_to_earnings <= 7
+  const instAccum       = institutional_ownership_delta_pct != null && institutional_ownership_delta_pct >= 2
+  const govBuying       = gov_trade_signal === 'Government Buying' || gov_trade_signal === 'Government Cluster Buy'
+  const govSelling      = gov_trade_signal === 'Government Selling'
 
-  const bias      = isMomentum && !isParabolic ? 'Bullish' : isOversold ? 'Neutral-to-Bullish' : isParabolic ? 'Caution — Extended' : 'Neutral'
+  const bias      = earningsSoon ? 'Event Risk' : govBuying && isMomentum ? 'Bullish + Alt Data' : govSelling ? 'Caution — Selling' : isMomentum && !isParabolic ? 'Bullish' : isOversold ? 'Neutral-to-Bullish' : isParabolic ? 'Caution — Extended' : 'Neutral'
   const biasColor = bias === 'Bullish' ? 'text-green-700' : bias === 'Neutral-to-Bullish' ? 'text-blue-700' : 'text-orange-700'
-  const volEnv    = isHighVol ? 'High IV — expensive options' : isLowVol ? 'Low IV — cheap options' : hasSqueeze ? 'Compressed IV — pre-expansion' : 'Moderate IV'
+  const volEnv    = earningsSoon ? 'Earnings IV — crush risk' : isHighVol ? 'High IV — expensive options' : isLowVol ? 'Low IV — cheap options' : hasSqueeze ? 'Compressed IV — pre-expansion' : 'Moderate IV'
 
   let strategy = '', rationale = '', strikeHint = ''
-  if (hasSqueeze) {
+  if (earningsSoon) {
+    strategy  = instAccum && isMomentum ? 'Defined-Risk Bull Call Spread' : 'Defined-Risk Earnings Straddle / Iron Condor'
+    rationale = instAccum && isMomentum
+      ? 'Earnings are close, so avoid naked directional premium. Institutional accumulation and momentum support a bullish thesis, but a call spread keeps risk defined through the event and limits IV-crush damage.'
+      : 'The earnings event can overwhelm technical signals. Use defined-risk volatility structures only if the expected move is mispriced; otherwise wait for the report and trade the reaction.'
+    strikeHint = expected_move_pct != null && price != null ? `Anchor strikes around the expected move: ±${expected_move_pct.toFixed(1)}% from $${price.toFixed(2)}` : ''
+  } else if (govBuying && isMomentum) {
+    strategy  = 'Bull Call Spread / LEAPS Call Spread'
+    rationale = 'Government buying is delayed, but when it aligns with price momentum it can act as alternative-data confirmation. Prefer defined-risk upside exposure or longer-dated spreads so the thesis has time to develop.'
+    strikeHint = price != null && atr_dollar != null ? `Buy near ATM, sell ~$${(price + atr_dollar * 2).toFixed(2)}; use longer expirations if liquidity allows` : ''
+  } else if (govBuying && isLowVol) {
+    strategy  = 'Long Call / LEAPS'
+    rationale = 'Political buying plus low volatility favors longer-dated optionality. Cheap premium gives time for any policy or procurement tailwind to be recognized without overpaying for near-term IV.'
+    strikeHint = price != null ? `Consider 3-8% OTM longer-dated calls around $${(price * 1.05).toFixed(2)}` : ''
+  } else if (govSelling && (isParabolic || isEuphoric)) {
+    strategy  = 'Bear Put Spread / Call Credit Spread'
+    rationale = 'Government selling is only a light warning, but when it coincides with an extended chart, defined-risk bearish premium structures become more attractive than chasing upside.'
+    strikeHint = price != null && atr_dollar != null ? `Use defined-risk spreads beyond ~$${(price + atr_dollar).toFixed(2)} resistance` : ''
+  } else if (hasSqueeze) {
     strategy  = 'Long Straddle / Strangle'
     rationale = 'Volatility compression precedes a sharp directional move. A straddle profits from expansion in either direction — ideal before the catalyst fires. Wait for volume confirmation of direction before converting to a directional position.'
     strikeHint = price != null && expected_move_pct != null ? `ATM straddle near $${price.toFixed(2)} — wings ±${expected_move_pct.toFixed(1)}%` : ''
@@ -608,6 +681,15 @@ function StockCard({ row }: { row: any }) {
         <div className="flex gap-5 min-w-max sm:min-w-0 sm:flex-wrap">
           <RsiBlock rsi={row.rsi} />
           <AtrBlock atrPct={row.atr_pct} atrDollar={row.atr_dollar} />
+          <EarningsBlock date={row.next_earnings_date} days={row.days_to_earnings} />
+          <InstitutionBlock delta={row.institutional_ownership_delta_pct} trend={row.institutional_ownership_trend} />
+          <GovernmentTradeBlock
+            signal={row.gov_trade_signal}
+            buyCount={row.gov_trade_buy_count_90d}
+            sellCount={row.gov_trade_sell_count_90d}
+            netAmount={row.gov_trade_net_amount_90d}
+            members={row.gov_trade_members}
+          />
           <MADistBlock pct={row.ma_distance_pct} label={row.ma_distance_label} />
           <VolBlock v={row.volume_ratio} />
           <RSBlock rs={row.relative_strength_20d} />
@@ -861,6 +943,10 @@ export default function StockTable({ data }: { data: any[] }) {
     { key: 'atr_pct',               label: 'ATR%' },
     { key: 'volume_ratio',          label: 'Volume' },
     { key: 'relative_strength_20d', label: 'vs SPY' },
+    { key: 'days_to_earnings',      label: 'Earnings' },
+    { key: 'institutional_ownership_delta_pct', label: 'Inst' },
+    { key: 'gov_trade_net_amount_90d', label: 'Gov' },
+    { key: 'dividend_yield_percent', label: 'Dividend' },
     { key: 'ma_distance_pct',       label: 'MA Dist' },
     { key: 'price',                 label: 'Price' },
   ]

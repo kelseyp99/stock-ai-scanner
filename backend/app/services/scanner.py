@@ -225,8 +225,10 @@ def calculate_ma_distance(price, ma20) -> tuple[float | None, str | None]:
 
 # ── Risk profile ──────────────────────────────────────────────────────────────
 
-def assign_risk_profile(atr_pct, market_cap, dividend_yield_pct, rsi, price, ma20, ma50) -> str:
+def assign_risk_profile(atr_pct, market_cap, dividend_yield_pct, rsi, price, ma20, ma50,
+                        days_to_earnings=None) -> str:
     div = dividend_yield_pct or 0; atr = atr_pct or 0
+    if days_to_earnings is not None and 0 <= days_to_earnings <= 7: return 'Earnings Event Risk'
     if div > 3.0 and atr < 2.0: return 'Conservative Income'
     if div > 2.0 and atr < 3.0: return 'Defensive Dividend'
     if atr > 5.0 and (market_cap is None or market_cap < 2_000_000_000): return 'Speculative'
@@ -248,7 +250,9 @@ def is_speculative_stock(price, market_cap, atr_pct) -> bool:
 
 def calculate_weighted_score(rsi, price, ma20, ma50, volume_ratio, dividend_yield_pct,
                               atr_pct, market_cap, relative_strength, ma_conv_label,
-                              ma_distance_pct=None):
+                              ma_distance_pct=None, days_to_earnings=None,
+                              institutional_ownership_delta_pct=None,
+                              gov_trade_signal=None, gov_trade_net_amount_90d=None):
     reasons = []; bullish = 0; risk = 0
 
     # ── RSI ──────────────────────────────────────────────────────────────────
@@ -314,6 +318,36 @@ def calculate_weighted_score(rsi, price, ma20, ma50, volume_ratio, dividend_yiel
     if dividend_yield_pct is not None and dividend_yield_pct > 3.0:
         bullish += 1; reasons.append(f'{dividend_yield_pct:.1f}% dividend yield — income support')
 
+    # ── Earnings event risk ──────────────────────────────────────────────────
+    if days_to_earnings is not None:
+        if 0 <= days_to_earnings <= 3:
+            risk += 3; reasons.append(f'Earnings in {days_to_earnings} days — high gap/IV crush risk')
+        elif 4 <= days_to_earnings <= 7:
+            risk += 2; reasons.append(f'Earnings in {days_to_earnings} days — event risk elevated')
+        elif 8 <= days_to_earnings <= 21:
+            risk += 1; reasons.append(f'Earnings in {days_to_earnings} days — upcoming catalyst')
+
+    # ── Institutional accumulation/distribution ──────────────────────────────
+    if institutional_ownership_delta_pct is not None:
+        if institutional_ownership_delta_pct >= 5:
+            bullish += 2; reasons.append(f'Institutional ownership +{institutional_ownership_delta_pct:.1f}% QoQ — accumulation')
+        elif institutional_ownership_delta_pct >= 2:
+            bullish += 1; reasons.append(f'Institutional ownership +{institutional_ownership_delta_pct:.1f}% QoQ')
+        elif institutional_ownership_delta_pct <= -5:
+            risk += 2; reasons.append(f'Institutional ownership {institutional_ownership_delta_pct:.1f}% QoQ — distribution')
+        elif institutional_ownership_delta_pct <= -2:
+            risk += 1; reasons.append(f'Institutional ownership {institutional_ownership_delta_pct:.1f}% QoQ')
+
+    # ── Government disclosure signal ─────────────────────────────────────────
+    if gov_trade_signal:
+        amount = gov_trade_net_amount_90d or 0
+        if gov_trade_signal == 'Government Cluster Buy':
+            bullish += 2; reasons.append(f'Government cluster buying disclosed — net ${amount:,.0f} over 90 days')
+        elif gov_trade_signal == 'Government Buying':
+            bullish += 1; reasons.append(f'Government buying disclosed — net ${amount:,.0f} over 90 days')
+        elif gov_trade_signal == 'Government Selling':
+            risk += 1; reasons.append(f'Government selling disclosed — net ${amount:,.0f} over 90 days')
+
     # ── ATR volatility risk ───────────────────────────────────────────────────
     if atr_pct is not None:
         if atr_pct > 7:
@@ -336,7 +370,8 @@ def calculate_weighted_score(rsi, price, ma20, ma50, volume_ratio, dividend_yiel
 
 def assign_categories(rsi, price, ma20, ma50, volume_ratio, dividend_yield_pct, atr_pct,
                       market_cap=None, relative_strength=None, ma_convergence_label=None,
-                      ma_distance_pct=None, squeeze=False) -> list:
+                      ma_distance_pct=None, squeeze=False, days_to_earnings=None,
+                      institutional_ownership_delta_pct=None, gov_trade_signal=None) -> list:
     cats = []
     # Oversold first
     if rsi is not None and rsi < 35: cats.append('Oversold')
@@ -359,6 +394,12 @@ def assign_categories(rsi, price, ma20, ma50, volume_ratio, dividend_yield_pct, 
             cats.append('Weak Trend')
     if volume_ratio is not None and volume_ratio > 1.5: cats.append('Breakout Volume')
     if dividend_yield_pct and dividend_yield_pct > 3.0: cats.append('Dividend')
+    if days_to_earnings is not None and 0 <= days_to_earnings <= 21: cats.append('Earnings Soon')
+    if institutional_ownership_delta_pct is not None:
+        if institutional_ownership_delta_pct >= 2: cats.append('Institutional Accumulation')
+        elif institutional_ownership_delta_pct <= -2: cats.append('Institutional Distribution')
+    if gov_trade_signal in ('Government Buying', 'Government Cluster Buy', 'Government Selling'):
+        cats.append(gov_trade_signal)
     if atr_pct is not None:
         if atr_pct >= 5.0: cats.append('Extreme Volatility')
         elif atr_pct >= 3.0: cats.append('High Volatility')
@@ -375,7 +416,11 @@ def assign_categories(rsi, price, ma20, ma50, volume_ratio, dividend_yield_pct, 
 # ── Natural-language explanation ──────────────────────────────────────────────
 
 def generate_explanation(price, rsi, ma20, ma50, atr_pct, volume_ratio,
-                         ma_distance_pct, relative_strength, dividend_yield_pct) -> str:
+                         ma_distance_pct, relative_strength, dividend_yield_pct,
+                         days_to_earnings=None, next_earnings_date=None,
+                         institutional_ownership_delta_pct=None,
+                         gov_trade_signal=None, gov_trade_net_amount_90d=None,
+                         gov_trade_members=None) -> str:
     parts = []
 
     # Extension / pullback status (lead with this — most important)
@@ -442,6 +487,27 @@ def generate_explanation(price, rsi, ma20, ma50, atr_pct, volume_ratio,
     if dividend_yield_pct and dividend_yield_pct > 3:
         parts.append(f"A {dividend_yield_pct:.1f}% dividend yield provides a meaningful income floor, reducing downside risk for longer-term holders.")
 
+    # Fundamental event/ownership context
+    if days_to_earnings is not None and 0 <= days_to_earnings <= 21:
+        when = f" on {next_earnings_date}" if next_earnings_date else ""
+        parts.append(f"Earnings are due in {days_to_earnings} days{when}, so options trades should account for event-driven gaps and post-earnings IV crush.")
+    if institutional_ownership_delta_pct is not None:
+        if institutional_ownership_delta_pct >= 2:
+            parts.append(f"Institutional ownership rose {institutional_ownership_delta_pct:.1f}% quarter over quarter, adding accumulation confirmation to the setup.")
+        elif institutional_ownership_delta_pct <= -2:
+            parts.append(f"Institutional ownership fell {abs(institutional_ownership_delta_pct):.1f}% quarter over quarter, which lowers conviction and raises distribution risk.")
+    if gov_trade_signal:
+        amount = gov_trade_net_amount_90d or 0
+        member_text = ""
+        if gov_trade_members:
+            member_text = f" Members disclosed include {', '.join(gov_trade_members[:3])}."
+        if gov_trade_signal == 'Government Cluster Buy':
+            parts.append(f"Multiple government officials disclosed net buying of roughly ${amount:,.0f} over the recent window. Treat this as delayed alternative-data confirmation, not a primary thesis.{member_text}")
+        elif gov_trade_signal == 'Government Buying':
+            parts.append(f"Recent government disclosures show net buying of roughly ${amount:,.0f}. This can support conviction, but disclosures are delayed and should be weighted lightly.{member_text}")
+        elif gov_trade_signal == 'Government Selling':
+            parts.append(f"Recent government disclosures show net selling of roughly ${abs(amount):,.0f}, which slightly lowers conviction in bullish setups.{member_text}")
+
     return " ".join(parts) if parts else "Insufficient data to generate a narrative summary."
 
 # ── Volatility compression (squeeze) detection ───────────────────────────────
@@ -461,13 +527,20 @@ def detect_volatility_compression(high: pd.Series, low: pd.Series, close: pd.Ser
 # ── Trade Type Engine (Feature #5) ───────────────────────────────────────────
 
 def assign_trade_type(rsi, atr_pct, volume_ratio, dividend_yield_pct,
-                      ma_distance_pct, ma_conv_label, market_cap, squeeze) -> str:
+                      ma_distance_pct, ma_conv_label, market_cap, squeeze,
+                      days_to_earnings=None, gov_trade_signal=None) -> str:
     """Classify the most appropriate trade type based on signal combination."""
     atr   = atr_pct   or 0.0
     dist  = ma_distance_pct or 0.0
     div   = dividend_yield_pct or 0.0
     rsi_v = rsi or 50.0
     vol   = volume_ratio or 0.0
+
+    if days_to_earnings is not None and 0 <= days_to_earnings <= 7:
+        return 'Earnings Volatility Play'
+
+    if gov_trade_signal in ('Government Buying', 'Government Cluster Buy') and rsi_v > 55:
+        return 'Political Momentum'
 
     # Volatility compression → breakout setup
     if squeeze and atr < 2.5:
@@ -506,7 +579,10 @@ def assign_trade_type(rsi, atr_pct, volume_ratio, dividend_yield_pct,
 # ── Setup Quality Grade (Feature #9) ─────────────────────────────────────────
 
 def assign_setup_quality(composite_score: int, volume_ratio: float, rsi,
-                          ma_distance_pct, atr_pct, squeeze: bool) -> str:
+                          ma_distance_pct, atr_pct, squeeze: bool,
+                          days_to_earnings=None,
+                          institutional_ownership_delta_pct=None,
+                          gov_trade_signal=None) -> str:
     """Grade setup quality: A+, A, B, C."""
     score = 0
     if composite_score >= 10: score += 3
@@ -518,6 +594,11 @@ def assign_setup_quality(composite_score: int, volume_ratio: float, rsi,
     if ma_distance_pct is not None and 2 <= ma_distance_pct <= 12: score += 1
     if atr_pct is not None and 2 <= atr_pct <= 5: score += 1
     if squeeze: score += 1
+    if institutional_ownership_delta_pct is not None and institutional_ownership_delta_pct >= 2: score += 1
+    if gov_trade_signal == 'Government Cluster Buy': score += 1
+    elif gov_trade_signal == 'Government Selling': score -= 1
+    if days_to_earnings is not None and 0 <= days_to_earnings <= 3: score -= 2
+    elif days_to_earnings is not None and 4 <= days_to_earnings <= 7: score -= 1
     if score >= 8: return 'A+'
     if score >= 6: return 'A'
     if score >= 4: return 'B'
@@ -589,7 +670,8 @@ def assign_confidence(bullish_score: int, risk_score: int, rsi, atr_pct, volume_
 
 # ── Main scan function ────────────────────────────────────────────────────────
 
-def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, session=None):
+def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, session=None,
+                fetch_news: bool = True):
     """Scan one ticker: fetch → indicators → weighted score → categories → explanation.
     Pass a requests.Session (e.g. with proxy) via `session` to override the default."""
     debug_info = {'ticker': ticker, 'fetched_rows': 0, 'has_close': False, 'has_volume': False, 'exception': None}
@@ -630,24 +712,46 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
 
         try:
             import threading
-            from .news_signal_service import fetch_and_score_news
+            from .fundamental_service import get_fundamentals_for_ticker
+            from .government_trade_service import get_government_trades_for_ticker
             _info_result = {}
             _news_result = {}
+            _fundamental_result = {}
+            _government_result = {}
+            ticker_obj = yf.Ticker(ticker)
             def _fetch_info():
                 try:
-                    _info_result['data'] = yf.Ticker(ticker).info
+                    _info_result['data'] = ticker_obj.info
                 except Exception:
                     _info_result['data'] = {}
             def _fetch_news():
                 try:
+                    from .news_signal_service import fetch_and_score_news
                     _news_result['data'] = fetch_and_score_news(ticker, db=session)
                 except Exception:
                     _news_result['data'] = {}
+            def _fetch_fundamentals():
+                try:
+                    _fundamental_result['data'] = get_fundamentals_for_ticker(ticker, ticker_obj=ticker_obj)
+                except Exception:
+                    _fundamental_result['data'] = {}
+            def _fetch_government_trades():
+                try:
+                    _government_result['data'] = get_government_trades_for_ticker(ticker)
+                except Exception:
+                    _government_result['data'] = {}
             t_info = threading.Thread(target=_fetch_info, daemon=True)
-            t_news = threading.Thread(target=_fetch_news, daemon=True)
-            t_info.start(); t_news.start()
+            t_fund = threading.Thread(target=_fetch_fundamentals, daemon=True)
+            t_gov = threading.Thread(target=_fetch_government_trades, daemon=True)
+            t_news = threading.Thread(target=_fetch_news, daemon=True) if fetch_news else None
+            t_info.start(); t_fund.start(); t_gov.start()
+            if t_news:
+                t_news.start()
             t_info.join(timeout=15)   # hard 15s cap on .info — it hangs on delisted/bad tickers
-            t_news.join(timeout=12)   # news is best-effort; don't block the scan
+            if t_news:
+                t_news.join(timeout=12)   # news is best-effort; don't block the scan
+            t_fund.join(timeout=10)   # fundamentals are helpful, but never block a scan
+            t_gov.join(timeout=2)     # local JSON lookup should be immediate
             info        = _info_result.get('data', {})
             raw_yield    = info.get('dividendYield', 0)
             market_cap   = info.get('marketCap', None)
@@ -657,9 +761,13 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
                 try: market_cap = float(market_cap)
                 except: market_cap = None
             news_signal  = _news_result.get('data') or {}
+            fundamentals = _fundamental_result.get('data') or {}
+            government_trades = _government_result.get('data') or {}
         except Exception:
             raw_yield, market_cap, implied_vol, company_name = 0, None, None, None
             news_signal = {}
+            fundamentals = {}
+            government_trades = {}
 
         dividend_yield_pct = normalize_dividend_yield(raw_yield)
         stock_return       = calc_20d_return(close)
@@ -673,10 +781,31 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
         expected_move_pct                  = calculate_expected_move(atr_pct, implied_vol)
         action_zones                       = calculate_action_zones(price, ma20, ma50, atr_dollar)
         ma_distance_pct, ma_distance_label = calculate_ma_distance(price, ma20)
-        risk_profile                       = assign_risk_profile(atr_pct, market_cap, dividend_yield_pct, rsi, price, ma20, ma50)
+        next_earnings_date                 = fundamentals.get('next_earnings_date')
+        days_to_earnings                   = fundamentals.get('days_to_earnings')
+        earnings_window                    = fundamentals.get('earnings_window')
+        earnings_source                    = fundamentals.get('earnings_source')
+        earnings_estimate_eps              = fundamentals.get('earnings_estimate_eps')
+        institutional_ownership_delta_pct  = fundamentals.get('institutional_ownership_delta_pct')
+        institutional_ownership_trend      = fundamentals.get('institutional_ownership_trend')
+        institutional_ownership_source     = fundamentals.get('institutional_ownership_source')
+        gov_trade_buy_count_90d            = government_trades.get('gov_trade_buy_count_90d') or 0
+        gov_trade_sell_count_90d           = government_trades.get('gov_trade_sell_count_90d') or 0
+        gov_trade_net_amount_90d           = government_trades.get('gov_trade_net_amount_90d') or 0
+        gov_trade_latest_trade_date        = government_trades.get('gov_trade_latest_trade_date')
+        gov_trade_latest_disclosure_date   = government_trades.get('gov_trade_latest_disclosure_date')
+        gov_trade_members                  = government_trades.get('gov_trade_members') or []
+        gov_trade_signal                   = government_trades.get('gov_trade_signal')
+        gov_trade_source                   = government_trades.get('gov_trade_source')
+
+        risk_profile                       = assign_risk_profile(atr_pct, market_cap, dividend_yield_pct, rsi, price, ma20, ma50, days_to_earnings)
         bullish_score, risk_score, composite_score, reasons = calculate_weighted_score(
             rsi, price, ma20, ma50, volume_ratio, dividend_yield_pct, atr_pct, market_cap,
-            relative_strength, ma_conv_label, ma_distance_pct=ma_distance_pct)
+            relative_strength, ma_conv_label, ma_distance_pct=ma_distance_pct,
+            days_to_earnings=days_to_earnings,
+            institutional_ownership_delta_pct=institutional_ownership_delta_pct,
+            gov_trade_signal=gov_trade_signal,
+            gov_trade_net_amount_90d=gov_trade_net_amount_90d)
 
         # ── News catalyst boost ────────────────────────────────────────────────
         news_boost    = news_signal.get('news_boost', 0) or 0
@@ -692,13 +821,27 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
                                          relative_strength, ma_distance_pct, squeeze)
         categories   = assign_categories(rsi, price, ma20, ma50, volume_ratio, dividend_yield_pct, atr_pct,
                                         market_cap, relative_strength, ma_conv_label,
-                                        ma_distance_pct=ma_distance_pct, squeeze=squeeze)
+                                        ma_distance_pct=ma_distance_pct, squeeze=squeeze,
+                                        days_to_earnings=days_to_earnings,
+                                        institutional_ownership_delta_pct=institutional_ownership_delta_pct,
+                                        gov_trade_signal=gov_trade_signal)
         trade_type   = assign_trade_type(rsi, atr_pct, volume_ratio, dividend_yield_pct,
-                                         ma_distance_pct, ma_conv_label, market_cap, squeeze)
+                                         ma_distance_pct, ma_conv_label, market_cap, squeeze,
+                                         days_to_earnings=days_to_earnings,
+                                         gov_trade_signal=gov_trade_signal)
         setup_quality = assign_setup_quality(composite_score, volume_ratio, rsi,
-                                             ma_distance_pct, atr_pct, squeeze)
+                                             ma_distance_pct, atr_pct, squeeze,
+                                             days_to_earnings=days_to_earnings,
+                                             institutional_ownership_delta_pct=institutional_ownership_delta_pct,
+                                             gov_trade_signal=gov_trade_signal)
         explanation = generate_explanation(price, rsi, ma20, ma50, atr_pct, volume_ratio,
-                                           ma_distance_pct, relative_strength, dividend_yield_pct)
+                                           ma_distance_pct, relative_strength, dividend_yield_pct,
+                                           days_to_earnings=days_to_earnings,
+                                           next_earnings_date=next_earnings_date,
+                                           institutional_ownership_delta_pct=institutional_ownership_delta_pct,
+                                           gov_trade_signal=gov_trade_signal,
+                                           gov_trade_net_amount_90d=gov_trade_net_amount_90d,
+                                           gov_trade_members=gov_trade_members)
 
         result = {
             'ticker': normalize_ticker(ticker),
@@ -724,6 +867,22 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
             'ma_distance_label': ma_distance_label,
             'dividend_yield':         dividend_yield_pct,
             'dividend_yield_percent': dividend_yield_pct,
+            'next_earnings_date':     next_earnings_date,
+            'days_to_earnings':       days_to_earnings,
+            'earnings_window':        earnings_window,
+            'earnings_source':        earnings_source,
+            'earnings_estimate_eps':  earnings_estimate_eps,
+            'institutional_ownership_delta_pct': institutional_ownership_delta_pct,
+            'institutional_ownership_trend':     institutional_ownership_trend,
+            'institutional_ownership_source':    institutional_ownership_source,
+            'gov_trade_buy_count_90d':           gov_trade_buy_count_90d,
+            'gov_trade_sell_count_90d':          gov_trade_sell_count_90d,
+            'gov_trade_net_amount_90d':          gov_trade_net_amount_90d,
+            'gov_trade_latest_trade_date':       gov_trade_latest_trade_date,
+            'gov_trade_latest_disclosure_date':  gov_trade_latest_disclosure_date,
+            'gov_trade_members':                 gov_trade_members,
+            'gov_trade_signal':                  gov_trade_signal,
+            'gov_trade_source':                  gov_trade_source,
             'market_cap':             int(market_cap) if market_cap is not None else None,
             'bullish_score':  bullish_score,
             'risk_score':     risk_score,

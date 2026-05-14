@@ -19,8 +19,23 @@ export default function Dashboard() {
   const [byCategory, setByCategory] = React.useState<Record<string, any>>({})
   const [summary, setSummary] = React.useState<string>('')
   const [totalScanned, setTotalScanned] = React.useState<number>(0)
+  const [runDate, setRunDate] = React.useState<string>('')
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+
+  const formatRunDate = (value?: string | null) => {
+    if (!value) return ''
+    const d = new Date(value)
+    if (Number.isNaN(d.getTime())) return value
+    return d.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    })
+  }
 
   const loadDemo = async () => {
     try {
@@ -30,6 +45,7 @@ export default function Dashboard() {
       setByCategory(d.by_category)
       setSummary(d.summary)
       setTotalScanned(d.total_scanned)
+      setRunDate(d.scan_finished_at || d.generated_at || '')
     } catch (e: any) {
       setError('Failed to load demo data')
     }
@@ -47,6 +63,7 @@ export default function Dashboard() {
       setByCategory(res.data.by_category ?? {})
       setSummary(res.data.summary ?? '')
       setTotalScanned(res.data.total_scanned ?? 0)
+      setRunDate(res.data.scan_finished_at || res.data.generated_at || '')
     } catch (e: any) {
       if (e?.name === 'AbortError' || e?.code === 'ERR_CANCELED') {
         setError('Scan timed out after 30s — backend may still be processing.')
@@ -70,6 +87,9 @@ export default function Dashboard() {
       <div className="flex justify-between items-center">
         <h2 className="sr-only">ThetaForge</h2>
         <div className="flex items-center gap-3">
+          {runDate && (
+            <span className="text-sm text-gray-500">Run {formatRunDate(runDate)}</span>
+          )}
           {totalScanned > 0 && (
             <span className="text-sm text-gray-500">{totalScanned} tickers scanned</span>
           )}

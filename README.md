@@ -132,6 +132,109 @@ FastAPI writes `scan_results_latest.json`, then runs:
 
 Deploy logs are appended to `static_deploy_latest.log`.
 
+### Fundamental filters
+The scanner enriches each ticker with fundamental/event context and folds it
+into score, risk, setup quality, analysis text, and options strategy selection.
+
+Supported fields:
+- `next_earnings_date`, `days_to_earnings`, `earnings_window`
+- `institutional_ownership_delta_pct`, `institutional_ownership_trend`
+- `gov_trade_signal`, `gov_trade_net_amount_90d`, `gov_trade_members`
+- `dividend_yield_percent`
+
+Optional environment variables:
+```bash
+ALPHAVANTAGE_API_KEY=...                       # upcoming earnings calendar
+INSTITUTIONAL_OWNERSHIP_CHANGES_FILE=...       # JSON map built from 13F snapshots
+GOVERNMENT_TRADES_FILE=...                     # JSON map built from STOCK Act / official disclosures
+FUNDAMENTALS_CACHE_TTL_HOURS=24
+GOVERNMENT_TRADES_CACHE_TTL_HOURS=6
+```
+
+Example institutional ownership JSON:
+```json
+{
+  "AAPL": {
+    "institutional_ownership_delta_pct": 2.7,
+    "source": "sec_13f_qoq"
+  },
+  "TSLA": {
+    "institutional_ownership_delta_pct": -3.4,
+    "source": "sec_13f_qoq"
+  }
+}
+```
+
+Example government trades JSON:
+```json
+{
+  "NVDA": {
+    "gov_trade_buy_count_90d": 4,
+    "gov_trade_sell_count_90d": 1,
+    "gov_trade_net_amount_90d": 185000,
+    "gov_trade_latest_trade_date": "2026-05-01",
+    "gov_trade_latest_disclosure_date": "2026-05-12",
+    "gov_trade_members": ["Jane Doe", "John Smith"],
+    "gov_trade_signal": "Government Cluster Buy",
+    "source": "stock_act_provider"
+  },
+  "AAPL": [
+    {
+      "member": "Jane Doe",
+      "transaction_type": "Purchase",
+      "amount_midpoint": 15000,
+      "trade_date": "2026-05-01",
+      "disclosure_date": "2026-05-12"
+    }
+  ]
+}
+```
+
+Notes:
+- Earnings dates use Alpha Vantage when configured, with yfinance calendar as
+  a fallback.
+- Dividend yield is pulled from the existing ticker fundamentals and normalized
+  into percent form.
+- Institutional ownership changes should come from a separate 13F ingestion job
+  or a paid normalized 13F provider, then be written to the JSON file above.
+- Government trade signals should come from a separate STOCK Act disclosure
+  ingestion job or provider such as Quiver/Capitol Trades/Signal Congress. The
+  scanner weights this lightly because disclosures can lag the actual trade.
+
+#### Build government trades from public disclosures
+Official no-cost sources:
+- House Clerk Financial Disclosure Reports:
+  `https://disclosures-clerk.house.gov/FinancialDisclosure/ViewReport`
+- House search/PTR PDFs:
+  `https://disclosures-clerk.house.gov/FinancialDisclosure/ViewSearch`
+- Senate eFD public search:
+  `https://efdsearch.senate.gov/search/home/`
+
+The official sources are free, but they are not clean ticker APIs. House provides
+bulk yearly metadata and PTR PDFs; Senate provides public eFD search results and
+filing pages. Extract rows into a CSV/JSON using columns like:
+`ticker`, `member`, `chamber`, `transaction_type`, `amount_range`,
+`trade_date`, `disclosure_date`, `asset`, `source_url`.
+
+Normalize those rows into the scanner format:
+```bash
+.venv/bin/python scripts/ingest_government_trades.py \
+  --input data/government_trades_input.example.csv \
+  --output data/government_trades.json
+```
+
+Discover House PTR PDFs from the official yearly bulk ZIP:
+```bash
+.venv/bin/python scripts/ingest_government_trades.py \
+  --download-house-metadata 2026 \
+  --house-review-csv data/government_disclosure_sources/house_2026_ptr_review.csv
+```
+
+Then set:
+```bash
+GOVERNMENT_TRADES_FILE=/opt/stock-ai-scanner/data/government_trades.json
+```
+
 ### Custom options
 ```bash
 .venv/bin/python scripts/run_scan_now.py \

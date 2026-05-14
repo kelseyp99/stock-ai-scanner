@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     # News
     news_lookback_days: int = 3
 
+    # Fundamentals
+    alphavantage_api_key: str = ''
+    fundamentals_cache_ttl_hours: int = 24
+    institutional_ownership_changes_file: str = ''
+    government_trades_file: str = ''
+    government_trades_cache_ttl_hours: int = 6
+    quiver_api_key: str = ''
+
     # Scheduler
     scheduler_enabled: bool = True
     default_scan_time: str = '02:00'
