@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Body, Query, Header
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Body, Query, Header
 from fastapi.responses import JSONResponse
 from typing import List, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import json, os, pathlib, secrets
+import json, os, pathlib, secrets, subprocess, sys
 from ..services.scanner import scan_ticker
 from ..services.ai_summary_service import generate_scan_summary
 from ..services.options_chain_service import get_options_chain
@@ -95,6 +95,25 @@ def scan_grouped(sample: int = 50, db: Session = Depends(get_db)):
     })
 
 _RESULTS_JSON = pathlib.Path(__file__).parents[3] / 'scan_results_latest.json'
+_PROJECT_ROOT = pathlib.Path(__file__).parents[3]
+_STATIC_DEPLOY_LOG = _PROJECT_ROOT / 'static_deploy_latest.log'
+
+
+def _deploy_static_snapshot() -> None:
+    """Build and deploy the static Firebase snapshot after remote scan ingest."""
+    cmd = [sys.executable, 'scripts/deploy_static_firebase.py']
+    with _STATIC_DEPLOY_LOG.open('a') as log:
+        log.write('\n' + '=' * 72 + '\n')
+        log.write('Starting static deploy from /scan/ingest\n')
+        log.write('Command: ' + ' '.join(cmd) + '\n')
+        log.flush()
+        subprocess.run(
+            cmd,
+            cwd=str(_PROJECT_ROOT),
+            stdout=log,
+            stderr=log,
+            check=False,
+        )
 
 @router.get('/scan/latest')
 def scan_latest():
@@ -130,8 +149,10 @@ _INGEST_TOKEN = os.environ.get('SCAN_INGEST_TOKEN', 'changeme-set-SCAN_INGEST_TO
 
 @router.post('/scan/ingest')
 def scan_ingest(
+    background_tasks: BackgroundTasks,
     payload: dict = Body(...),
     authorization: Optional[str] = Header(None),
+    deploy_static: bool = Query(False),
 ):
     """
     Accept scan results POSTed from a remote worker (e.g. Hetzner VM).
@@ -152,6 +173,11 @@ def scan_ingest(
     OUTPUT_FILE = pathlib.Path(__file__).parents[3] / 'scan_results_latest.json'
     OUTPUT_FILE.write_text(json.dumps(payload, indent=2, default=str))
 
+    static_deploy_queued = False
+    if deploy_static:
+        background_tasks.add_task(_deploy_static_snapshot)
+        static_deploy_queued = True
+
     top_count = len(payload.get('global_top') or [])
     universes = payload.get('universes_scanned') or []
     return JSONResponse(content={
@@ -159,6 +185,8 @@ def scan_ingest(
         'top_count': top_count,
         'universes': universes,
         'saved_to': str(OUTPUT_FILE),
+        'static_deploy_queued': static_deploy_queued,
+        'static_deploy_log': str(_STATIC_DEPLOY_LOG) if static_deploy_queued else None,
     })
 
 

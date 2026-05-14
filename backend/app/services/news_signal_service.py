@@ -89,10 +89,11 @@ def score_news(articles: list[dict]) -> dict:
           'news_boost':    int   — net score contribution (-4 to +4),
           'news_catalyst': str   — human-readable label of the strongest signal,
           'news_headline': str   — title of the article that triggered the signal,
+          'news_articles': list  — recent articles used for scoring,
         }
     """
     if not articles:
-        return {'news_boost': 0, 'news_catalyst': None, 'news_headline': None}
+        return {'news_boost': 0, 'news_catalyst': None, 'news_headline': None, 'news_articles': []}
 
     all_hits: list[tuple[int, str, str]] = []  # (weight, label, headline)
 
@@ -104,7 +105,7 @@ def score_news(articles: list[dict]) -> dict:
             all_hits.append((w, lbl, title))
 
     if not all_hits:
-        return {'news_boost': 0, 'news_catalyst': None, 'news_headline': None}
+        return {'news_boost': 0, 'news_catalyst': None, 'news_headline': None, 'news_articles': articles[:6]}
 
     # Pick the single hit with the highest absolute weight
     best = max(all_hits, key=lambda h: abs(h[0]))
@@ -123,6 +124,7 @@ def score_news(articles: list[dict]) -> dict:
         'news_boost':    boost,
         'news_catalyst': label,
         'news_headline': headline[:120] if label else None,
+        'news_articles': articles[:6],
     }
 
 
@@ -137,4 +139,4 @@ def fetch_and_score_news(ticker: str, db=None) -> dict:
         return score_news(articles)
     except Exception as e:
         logger.debug('news signal fetch failed for %s: %s', ticker, e)
-        return {'news_boost': 0, 'news_catalyst': None, 'news_headline': None}
+        return {'news_boost': 0, 'news_catalyst': None, 'news_headline': None, 'news_articles': []}

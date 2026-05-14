@@ -111,16 +111,19 @@ _BUCKETS = [
 ]
 BUCKET_MIN       = 2   # guaranteed slots per bucket (if candidates exist above threshold)
 MIN_BUCKET_SCORE = 2   # minimum composite score to qualify for a reserved slot
+DIVERSITY_HEADLINE_OPEN_SLOTS = 5  # show the strongest names first, then surface reserved setups
 
 
 def _build_diverse_top(results: list, n: int = 25) -> list:
     """
     Phase 1 — fill up to BUCKET_MIN reserved slots per bucket (score >= MIN_BUCKET_SCORE).
     Phase 2 — fill remaining slots with the highest-scoring un-selected stocks.
-    Phase 3 — sort the final set by score descending.
+    Phase 3 — keep high-scoring leaders visible, then round-robin reserved slots so
+    less common setups are not buried below a wall of momentum names.
     """
     sorted_all = _sort_results(results)
-    selected: dict[str, dict] = {}   # ticker → result
+    selected: dict[str, dict] = {}   # ticker -> result
+    reserved_by_bucket: dict[str, list[dict]] = {name: [] for name, _ in _BUCKETS}
 
     # Phase 1: reserved bucket slots
     for _name, pred in _BUCKETS:
@@ -137,18 +140,49 @@ def _build_diverse_top(results: list, n: int = 25) -> list:
                 r = dict(r)           # don't mutate original
                 r['diversity_slot'] = _name   # tag which bucket reserved this slot
                 selected[t] = r
+                reserved_by_bucket[_name].append(r)
                 added += 1
 
     # Phase 2: fill remaining slots by pure score
+    open_picks: list[dict] = []
     for r in sorted_all:
         if len(selected) >= n:
             break
         t = r['ticker']
         if t not in selected:
+            r = dict(r)
+            r.setdefault('diversity_slot', 'open')
             selected[t] = r
+            open_picks.append(r)
 
-    # Phase 3: re-sort by score
-    return _sort_results(list(selected.values()))[:n]
+    arranged: list[dict] = []
+
+    # Keep the highest-conviction names at the top, then make the reserved
+    # setups visible before filling the rest by score.
+    arranged.extend(open_picks[:DIVERSITY_HEADLINE_OPEN_SLOTS])
+
+    for slot_index in range(BUCKET_MIN):
+        for name, _pred in _BUCKETS:
+            bucket = reserved_by_bucket.get(name, [])
+            if slot_index < len(bucket):
+                arranged.append(bucket[slot_index])
+
+    arranged.extend(open_picks[DIVERSITY_HEADLINE_OPEN_SLOTS:])
+
+    # Deduplicate defensively and stamp the display order for the frontend.
+    ordered: list[dict] = []
+    seen: set[str] = set()
+    for r in arranged:
+        ticker = r.get('ticker')
+        if ticker and ticker not in seen:
+            seen.add(ticker)
+            ordered.append(r)
+        if len(ordered) >= n:
+            break
+
+    for i, r in enumerate(ordered, 1):
+        r['featured_rank'] = i
+    return ordered
 
 
 def scan_universe(universe_id: str, max_tickers: int, max_workers: int = 12) -> list:

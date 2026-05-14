@@ -682,6 +682,7 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
         news_boost    = news_signal.get('news_boost', 0) or 0
         news_catalyst = news_signal.get('news_catalyst')
         news_headline = news_signal.get('news_headline')
+        news_articles = news_signal.get('news_articles') or []
         if news_boost != 0:
             composite_score += news_boost
             if news_catalyst:
@@ -742,6 +743,7 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
             'news_boost':    news_boost,
             'news_catalyst': news_catalyst,
             'news_headline': news_headline,
+            'news_articles': news_articles,
         }
         if debug: result['ok'] = True; result['debug'] = debug_info
         return result

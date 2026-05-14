@@ -6,7 +6,12 @@ Provides functions to save/load settings and to run scheduled scans.
 """
 
 import logging
+import json
+import os
+import subprocess
+import sys
 from datetime import datetime, time, timedelta
+from pathlib import Path
 from typing import Optional
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -27,6 +32,11 @@ scheduler = BackgroundScheduler(timezone="UTC")
 # Track running jobs per user to avoid concurrency
 _running_users: dict[str, bool] = {}
 _current_running_count = 0
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_SCAN_SCRIPT = _PROJECT_ROOT / 'scripts' / 'run_scan_now.py'
+_LATEST_RESULTS = _PROJECT_ROOT / 'scan_results_latest.json'
+_SCHEDULED_TOP_N = 25
+_SCHEDULED_WORKERS = 20
 
 
 def _to_cron_time(scan_time: str, tz: str, weekdays_only: bool = True) -> CronTrigger:
@@ -96,6 +106,10 @@ def schedule_user_scan(s: models.SchedulerSetting, db: Session):
     if scheduler.get_job(job_id):
         scheduler.remove_job(job_id)
 
+    if not s.enabled:
+        logger.info('Scheduler setting %s disabled; no job scheduled', s.id)
+        return
+
     weekdays_only = bool(s.weekdays_only) if s.weekdays_only is not None else True
     trigger = _to_cron_time(s.scan_time, s.timezone, weekdays_only)
     scheduler.add_job(lambda: run_scheduled_scan(s.id), trigger, id=job_id, replace_existing=True)
@@ -159,6 +173,76 @@ def _sort_results(results: list) -> list:
     )
 
 
+def _run_scan_now_job(s: models.SchedulerSetting) -> dict:
+    """Run the canonical scanner CLI so scheduled scans refresh /scan/latest."""
+    universe_ids = _resolve_universe_ids(s) or ['sp500', 'nasdaq100', 'russell2000']
+    cmd = [
+        sys.executable,
+        str(_SCAN_SCRIPT),
+        '--universes',
+        *universe_ids,
+        '--workers',
+        str(_SCHEDULED_WORKERS),
+        '--top',
+        str(_SCHEDULED_TOP_N),
+    ]
+    if s.max_tickers:
+        cmd.extend(['--max', str(s.max_tickers)])
+    else:
+        cmd.append('--full')
+
+    env = os.environ.copy()
+    backend_path = str(_PROJECT_ROOT / 'backend')
+    env['PYTHONPATH'] = backend_path if not env.get('PYTHONPATH') else f"{backend_path}{os.pathsep}{env['PYTHONPATH']}"
+
+    logger.info('Starting scheduled scanner job: %s', ' '.join(cmd))
+    proc = subprocess.run(
+        cmd,
+        cwd=str(_PROJECT_ROOT),
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if proc.stdout:
+        logger.info('Scheduled scanner stdout:\n%s', proc.stdout[-8000:])
+    if proc.stderr:
+        logger.info('Scheduled scanner stderr:\n%s', proc.stderr[-8000:])
+    if proc.returncode != 0:
+        raise RuntimeError(f'run_scan_now.py failed with exit code {proc.returncode}')
+    if not _LATEST_RESULTS.exists():
+        raise RuntimeError(f'Scanner completed but did not write {_LATEST_RESULTS}')
+    return json.loads(_LATEST_RESULTS.read_text())
+
+
+def _persist_scheduled_payload(db: Session, payload: dict) -> models.ScanRun:
+    """Persist top scheduled results for history while JSON remains dashboard source."""
+    scan_run = models.ScanRun(
+        finished_at=datetime.utcnow(),
+        notes='scheduled run_scan_now.py job',
+    )
+    db.add(scan_run)
+    db.commit()
+    db.refresh(scan_run)
+
+    for r in payload.get('global_top') or payload.get('top_ranked') or []:
+        sr = models.ScanResult(scan_run_id=scan_run.id, **{
+            'ticker': r.get('ticker'),
+            'price': r.get('price'),
+            'rsi': r.get('rsi'),
+            'ma20': r.get('ma20'),
+            'ma50': r.get('ma50'),
+            'volume_ratio': r.get('volume_ratio'),
+            'dividend_yield': r.get('dividend_yield'),
+            'volatility_20': r.get('volatility') or r.get('volatility_20') or r.get('atr_pct'),
+            'score': r.get('score'),
+            'reasons': '; '.join(r.get('categories', []) or []),
+        })
+        db.add(sr)
+    db.commit()
+    return scan_run
+
+
 def run_scheduled_scan(setting_id: int, scheduled_run_id: Optional[int] = None):
     global _current_running_count
     if settings.max_concurrent_scheduled_scans and _current_running_count >= settings.max_concurrent_scheduled_scans:
@@ -211,19 +295,6 @@ def run_scheduled_scan(setting_id: int, scheduled_run_id: Optional[int] = None):
             db.refresh(run)
 
         try:
-            # Determine tickers — support multiple universes
-            universe_ids = _resolve_universe_ids(s)
-            tickers_seen: set[str] = set()
-            tickers: list[str] = []
-            for uid in universe_ids:
-                try:
-                    for t in get_universe_tickers(uid, db):
-                        if t not in tickers_seen:
-                            tickers_seen.add(t)
-                            tickers.append(t)
-                except Exception as e:
-                    logger.warning('Failed to fetch universe %s: %s', uid, e)
-
             # Weekend guard — extra safety net even when cron is configured correctly
             weekdays_only = bool(s.weekdays_only) if s.weekdays_only is not None else True
             if weekdays_only and not _is_market_day():
@@ -236,34 +307,11 @@ def run_scheduled_scan(setting_id: int, scheduled_run_id: Optional[int] = None):
                 _release_user_lock(s.user_id)
                 return
 
-            if s.max_tickers:
-                tickers = tickers[: s.max_tickers]
+            payload = _run_scan_now_job(s)
+            results = payload.get('global_top') or payload.get('top_ranked') or []
+            scan_run = _persist_scheduled_payload(db, payload)
 
-            results = _sort_results(_scan_parallel(tickers))
-
-            # Create a ScanRun and associate results
-            scan_run = models.ScanRun()
-            db.add(scan_run)
-            db.commit()
-            db.refresh(scan_run)
-
-            for r in results:
-                sr = models.ScanResult(scan_run_id=scan_run.id, **{
-                    'ticker': r.get('ticker'),
-                    'price': r.get('price'),
-                    'rsi': r.get('rsi'),
-                    'ma20': r.get('ma20'),
-                    'ma50': r.get('ma50'),
-                    'volume_ratio': r.get('volume_ratio'),
-                    'dividend_yield': r.get('dividend_yield'),
-                    'volatility_20': r.get('volatility'),
-                    'score': r.get('score'),
-                    'reasons': '; '.join(r.get('categories', []) or [])
-                })
-                db.add(sr)
-            db.commit()
-
-            run.tickers_scanned = len(results)
+            run.tickers_scanned = payload.get('total_hits') or len(results)
             run.status = 'completed'
             run.completed_at = datetime.utcnow()
             run.scan_run_id = scan_run.id

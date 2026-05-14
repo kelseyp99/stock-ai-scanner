@@ -7,6 +7,7 @@ import OptionsLab from './pages/OptionsLab'
 import About from './pages/About'
 import Banner from './components/Banner'
 import AdminScheduler from './pages/AdminScheduler'
+import { WatchlistProvider } from './context/WatchlistContext'
 
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error: string|null}> {
   constructor(props: any) { super(props); this.state = { error: null } }
@@ -25,36 +26,56 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error:
 }
 
 export default function App(){
+  // WatchlistProvider wraps everything so all pages share the same watchlist state
   const [view, setView] = React.useState('dashboard')
-  const logoHeight = 360
-  const logoMaxHeight = 420
-  const headerHeight = 330
+  const [mobileNavOpen, setMobileNavOpen] = React.useState(false)
+
+  const changeView = (nextView: string) => {
+    setView(nextView)
+    setMobileNavOpen(false)
+  }
 
   return (
-    <>
+    <WatchlistProvider>
       {/* Header — scrolls away naturally */}
-      <div style={{paddingTop: 10}}>
-        <header style={{display:'flex', alignItems:'center', justifyContent:'space-between', height: headerHeight, padding: '0 24px', marginBottom:0, overflow:'visible', position:'relative'}}>
-          <div style={{display:'flex', alignItems:'center', position:'relative', height: '100%'}}>
-            <div style={{display:'inline-block', marginRight:16, position:'relative', zIndex:1}}>
+      <div className="app-header-wrap">
+        <header className="app-header">
+          <div className="app-header-brand">
+            <div className="app-logo-frame">
               <img
                 src="/ThetaBrew.png"
                 alt="ThetaForge"
-                style={{height: 300, width:'auto', display:'block', borderRadius: 12, boxShadow:'0 4px 16px rgba(247,150,0,0.25)'}}
+                className="app-logo"
               />
             </div>
           </div>
 
-          <div style={{flex:'1 1 auto', display:'flex', justifyContent:'flex-end', alignItems:'center', height: '100%'}}>
-            <nav aria-label="Main navigation" style={{display:'flex', gap:12, flexWrap:'wrap', alignItems:'center', height: '100%'}}>
-              <button onClick={()=>setView('dashboard')} className="mr-2">Dashboard</button>
-              <button onClick={()=>setView('watchlist')} className="mr-2">Watchlist</button>
-              <button onClick={()=>setView('history')} className="mr-2">History</button>
-              <button onClick={()=>setView('settings')} className="mr-2">Settings</button>
-              <button onClick={()=>setView('options')}>Options Lab</button>
-              <button onClick={()=>setView('about')} className="mr-2">About</button>
+          <div className="app-nav-wrap">
+            <button
+              type="button"
+              className="app-menu-button"
+              aria-label="Open navigation menu"
+              aria-expanded={mobileNavOpen}
+              aria-controls="app-main-nav"
+              onClick={() => setMobileNavOpen((open) => !open)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+            <nav
+              id="app-main-nav"
+              aria-label="Main navigation"
+              className={`app-nav ${mobileNavOpen ? 'is-open' : ''}`}
+            >
+              <button onClick={()=>changeView('dashboard')} className="mr-2">Dashboard</button>
+              <button onClick={()=>changeView('watchlist')} className="mr-2">Watchlist</button>
+              <button onClick={()=>changeView('history')} className="mr-2">History</button>
+              <button onClick={()=>changeView('settings')} className="mr-2">Settings</button>
+              <button onClick={()=>changeView('options')}>Options Lab</button>
+              <button onClick={()=>changeView('about')} className="mr-2">About</button>
               {/* admin nav */}
-              {true && <button onClick={()=>setView('admin')} className="ml-2">Admin</button>}
+              {true && <button onClick={()=>changeView('admin')} className="ml-2">Admin</button>}
             </nav>
           </div>
         </header>
@@ -77,6 +98,6 @@ export default function App(){
           </ErrorBoundary>
         </main>
       </div>
-    </>
+    </WatchlistProvider>
   )
 }

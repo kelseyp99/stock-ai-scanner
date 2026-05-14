@@ -1,4 +1,252 @@
-# stock-ai-scanner
+# ThetaForge — Stock & Options Scanner Dashboard
+
+A professional-grade stock and options scanning dashboard for swing traders and options traders. Scans S&P 500, Nasdaq 100, and Russell 2000 nightly and surfaces the most actionable setups with institutional-quality narratives, risk profiles, and options interpretation.
+
+---
+
+## 🚀 Features
+
+- **Multi-universe scanning** — S&P 500, Nasdaq 100, Russell 2000 (~2,600 tickers)
+- **Diversity-aware ranking** — guaranteed slots for Oversold, Squeeze, Breakout, Dividend, and News Catalyst setups
+- **ATR% volatility tiers** — Low / Moderate / High / Extreme with heat coloring
+- **Expected Move** — IV-based or ATR fallback daily move estimate
+- **Action Zones** — Buy Zone, Chase Zone, Danger Zone per ticker
+- **Risk Profile Engine** — Conservative Income / Momentum Growth / Speculative / etc.
+- **Trade Type Engine** — Momentum Swing / Covered Call Income / Breakout Trade / Mean Reversion / etc.
+- **Volatility Compression Detection** — 🌀 Squeeze Setup when ATR contracts
+- **News Catalyst Scoring** — real-time headline scoring boosts ranking (+4 to -4)
+- **Weighted Scoring** — bullish + risk + composite + percentile rank (Elite / Strong / Good)
+- **Richer MA Distance labels** — Neutral → Slightly Extended → Extended → Very Extended → 🔥 Euphoric → 🚀 Parabolic
+- **Options Interpretation** — directional bias, volatility environment, strategy rationale per ticker
+- **Watchlist** — star any ticker, persists to localStorage (Firebase-ready for multi-device sync)
+- **TradingView charts** — embedded interactive chart per ticker card (on demand)
+- **News tab** — live news fetched per ticker from yfinance
+- **Institutional narratives** — plain-English explanation for every metric and setup
+- **Tooltips on all metrics** — label tooltip (what is this?) + value tooltip (what does this number mean?)
+- **Filter tabs** — Momentum / Oversold / Mean Reversion / Vol Squeeze / Dividend / High Vol / Low Vol / Elite Score
+- **Sortable columns** — sort by any metric
+- **Firebase hosting** — static frontend deployed to Firebase
+
+---
+
+## 🗂 Project Structure
+
+```
+stock-ai-scanner/
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   │   └── routes.py          # FastAPI routes incl. /scan/latest, /scan/ingest, /news/{ticker}
+│   │   ├── services/
+│   │   │   ├── scanner.py         # Core scan engine — ATR, scoring, trade type, risk, compression
+│   │   │   ├── news_service.py    # yfinance news fetcher + DB cache
+│   │   │   ├── news_signal_service.py  # Headline keyword scorer → news_boost
+│   │   │   └── scheduler_service.py   # APScheduler nightly scan scheduler
+│   │   ├── indicators/
+│   │   │   └── indicators.py      # RSI, MA, ATR, volume ratio calculations
+│   │   └── main.py                # FastAPI app entry point
+│   └── tests/
+│       └── test_scanner_calculations.py  # 43 unit tests
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   └── StockTable.tsx     # Main scanner UI — cards, tooltips, filters, chart, news
+│   │   ├── context/
+│   │   │   └── WatchlistContext.tsx  # Global watchlist state + localStorage persistence
+│   │   └── pages/
+│   │       ├── Dashboard.tsx      # Main page — fetches /scan/latest
+│   │       ├── Watchlist.tsx      # Watchlist page — renders saved tickers as full cards
+│   │       └── Admin.tsx          # Scheduler admin UI
+│   └── public/
+│       ├── favicon.ico            # Tab favicon
+│       ├── ThetaBrew.png          # Header logo
+│       └── logo.png               # Legacy logo
+├── scripts/
+│   └── run_scan_now.py            # CLI scanner — supports --full, --top N, --callback-url
+├── data/
+│   └── russell2000.csv            # Russell 2000 ticker list (auto-downloaded)
+├── scan_results_latest.json       # Latest scan output (served by /scan/latest)
+└── .env                           # Environment variables
+```
+
+---
+
+## ⚙️ Setup
+
+### Requirements
+- Python 3.11+
+- Node.js 18+
+- Firebase CLI (`npm install -g firebase-tools`)
+
+### Backend
+
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp ../.env.example ../.env   # set SCAN_INGEST_TOKEN, DATABASE_URL
+uvicorn app.main:app --reload --port 8001
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+cp .env.local.example .env.local   # set VITE_API_URL=http://localhost:8001
+npm run dev -- --port 5180
+```
+
+---
+
+## 🔍 Running a Scan
+
+### Quick scan (50 tickers/universe, ~3 min)
+```bash
+.venv/bin/python scripts/run_scan_now.py
+```
+
+### Full scan (all ~2,600 tickers, ~25 min)
+```bash
+.venv/bin/python scripts/run_scan_now.py --full
+```
+
+### Hetzner nightly scan → FastAPI ingest → static Firebase deploy
+Run the scanner on Hetzner and POST the finished payload back to FastAPI. Add
+`?deploy_static=1` to queue the static Firebase deploy after ingest succeeds.
+
+```bash
+SCAN_INGEST_TOKEN=... .venv/bin/python scripts/run_scan_now.py \
+  --full \
+  --universes sp500 nasdaq100 russell2000 \
+  --workers 20 \
+  --top 25 \
+  --callback-url https://your-fastapi-host/scan/ingest?deploy_static=1
+```
+
+FastAPI writes `scan_results_latest.json`, then runs:
+```bash
+.venv/bin/python scripts/deploy_static_firebase.py
+```
+
+Deploy logs are appended to `static_deploy_latest.log`.
+
+### Custom options
+```bash
+.venv/bin/python scripts/run_scan_now.py \
+  --universes sp500 nasdaq100 \
+  --max 100 \
+  --top 50 \
+  --callback-url https://your-tunnel.trycloudflare.com/scan/ingest
+```
+
+### Options
+| Flag | Default | Description |
+|---|---|---|
+| `--full` | off | Scan all tickers in all 3 universes |
+| `--universes` | sp500 nasdaq100 russell2000 | Which universes to scan |
+| `--max` | 50 | Max tickers per universe (ignored with --full) |
+| `--top` | 25 | How many results to save to JSON |
+| `--workers` | 8 | Parallel threads (reduce if Yahoo rate-limits) |
+| `--callback-url` | none | POST results to a remote FastAPI /scan/ingest endpoint |
+
+---
+
+## 🌐 Deploy to Firebase (Static Frontend)
+
+> The frontend must be built as a static site before deploying.
+
+```bash
+# 1. Build the static frontend
+cd frontend
+npm run build
+
+# 2. Deploy to Firebase Hosting
+firebase deploy --only hosting --project thetaforge-35430
+```
+
+The `firebase.json` is already configured to serve from `frontend/dist` and rewrite all routes to `index.html` for SPA routing.
+
+Live URL: **https://thetaforge-35430.web.app**
+
+---
+
+## 🔌 API Endpoints
+
+| Method | Route | Description |
+|---|---|---|
+| `GET` | `/scan/latest` | Returns latest scan results (deduped, normalised) |
+| `POST` | `/scan/ingest` | Accepts scan payload from remote worker (bearer token auth) |
+| `GET` | `/news/{ticker}` | Fetches recent news headlines for a ticker |
+| `GET` | `/scheduler/settings` | Returns current scheduler configuration |
+| `POST` | `/scheduler/settings` | Save scheduler settings + register cron job |
+| `GET` | `/health` | Health check |
+
+---
+
+## 🧪 Running Tests
+
+```bash
+.venv/bin/python -m pytest backend/tests/test_scanner_calculations.py -v
+```
+
+43 tests covering: ATR%, expected move, MA distance, action zones, extension classification, pullback detection, percentile scoring, trade type engine, volatility compression.
+
+---
+
+## 📅 Nightly Scheduler
+
+The backend uses APScheduler to run scans on a cron schedule (Mon–Fri only).
+
+Configure via the **Admin** tab in the dashboard UI, or via the API:
+
+```bash
+curl -X POST http://localhost:8001/scheduler/settings \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": true, "scan_time": "02:00", "universes": ["sp500", "nasdaq100"], "weekdays_only": true}'
+```
+
+To keep the Mac awake overnight for scheduled scans:
+```bash
+caffeinate -s uvicorn app.main:app --port 8001
+```
+
+---
+
+## 🔐 Environment Variables
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | SQLite or Postgres connection string |
+| `SCAN_INGEST_TOKEN` | Bearer token for `POST /scan/ingest` |
+| `VITE_API_URL` | Frontend API base URL (set in `frontend/.env.local`) |
+
+---
+
+## 🛣 Roadmap
+
+- [ ] Google Auth + Firebase Firestore for cross-device watchlist sync
+- [ ] Hetzner Docker worker — remote nightly scanner posting results via `/scan/ingest`
+- [ ] Cloudflare Tunnel — expose MacBook FastAPI to internet without port forwarding
+- [ ] DataImpulse proxy rotation for Yahoo Finance rate-limit bypass
+- [ ] Failed ticker retry queue with proxy fallback
+- [ ] Sparkline mini charts in scanner cards
+- [ ] PWA manifest for mobile install
+- [ ] Market regime detection (Risk-On / Defensive / Vol Expansion)
+- [ ] OpenAI/OpenRouter AI narrative generation per ticker
+
+---
+
+## 📸 Screenshot
+
+> Dashboard showing top-ranked stocks with ATR%, action zones, trade type, confidence meter, and expandable TradingView chart + news tabs.
+
+---
+
+## 👤 Author
+
+ThetaForge — built with FastAPI, React, TypeScript, yfinance, TradingView widgets, and Firebase.
 
 Full-stack starter project for a stock scanning dashboard.
 

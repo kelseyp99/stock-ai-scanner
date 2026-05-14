@@ -1,5 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
+import { useWatchlist } from '../context/WatchlistContext'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -515,6 +516,8 @@ function EducationalPanel({ row }: { row: any }) {
 function StockCard({ row }: { row: any }) {
   const [expanded, setExpanded] = React.useState(false)
   const [tab, setTab] = React.useState<'chart' | 'news' | 'zones' | 'options' | 'analysis'>('chart')
+  const { isInWatchlist, addToWatchlist, removeFromWatchlist } = useWatchlist()
+  const inWatchlist = isInWatchlist(row.ticker)
 
   const cats: string[] = row.categories ?? []
   const companyName    = COMPANY_NAMES[row.ticker] ?? row.company_name ?? null
@@ -585,6 +588,13 @@ function StockCard({ row }: { row: any }) {
 
           {/* Right: score + price */}
           <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <button
+              onClick={() => inWatchlist ? removeFromWatchlist(row.ticker) : addToWatchlist(row)}
+              title={inWatchlist ? 'Remove from Watchlist' : 'Add to Watchlist'}
+              className={`text-xl leading-none transition-transform hover:scale-125 active:scale-95 ${inWatchlist ? 'text-yellow-400' : 'text-slate-300 hover:text-yellow-300'}`}
+            >
+              {inWatchlist ? '★' : '☆'}
+            </button>
             <ScoreBadge score={row.score} bullish={row.bullish_score} risk={row.risk_score} percentileLabel={row.percentile_label} />
             {row.price != null && (
               <span className="text-base font-bold text-slate-700 tabular-nums">${Number(row.price).toFixed(2)}</span>
@@ -653,7 +663,7 @@ function StockCard({ row }: { row: any }) {
           </div>
           <div className="px-4 py-4 space-y-4">
             {tab === 'chart'    && <TradingViewChart ticker={row.ticker} />}
-            {tab === 'news'     && <NewsPanel ticker={row.ticker} />}
+            {tab === 'news'     && <NewsPanel row={row} />}
             {tab === 'zones'    && <ActionZonesPanel row={row} />}
             {tab === 'options'  && <OptionsInterpretationCard row={row} />}
             {tab === 'analysis' && <><NarrativePanel row={row} /><EducationalPanel row={row} /></>}
@@ -668,6 +678,7 @@ function StockCard({ row }: { row: any }) {
 // News panel — fetches on mount, shows headlines with publisher + age
 // ─────────────────────────────────────────────────────────────────────────────
 const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8001'
+const DEMO_MODE = (import.meta as any).env?.VITE_DEMO_MODE === 'true'
 
 function timeAgo(isoStr: string | null): string {
   if (!isoStr) return ''
@@ -678,17 +689,38 @@ function timeAgo(isoStr: string | null): string {
   return `${Math.floor(h / 24)}d ago`
 }
 
-function NewsPanel({ ticker }: { ticker: string }) {
+function staticArticlesForRow(row: any): any[] {
+  const articles = row.news_articles ?? row.news ?? row.articles
+  if (Array.isArray(articles) && articles.length) return articles
+  if (row.news_headline) {
+    return [{
+      title: row.news_headline,
+      publisher: row.news_catalyst || 'Scanner news signal',
+      url: '',
+      published_at: null,
+      snippet: row.news_catalyst ? `Detected catalyst: ${row.news_catalyst}` : '',
+    }]
+  }
+  return []
+}
+
+function NewsPanel({ row }: { row: any }) {
+  const ticker = row.ticker
   const [articles, setArticles] = React.useState<any[] | null>(null)
   const [error, setError]       = React.useState<string | null>(null)
 
   React.useEffect(() => {
+    if (DEMO_MODE) {
+      setArticles(staticArticlesForRow(row))
+      setError(null)
+      return
+    }
     setArticles(null); setError(null)
     fetch(`${API_BASE}/news/${ticker}?max=6`)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(d => setArticles(d.articles || []))
       .catch(e => setError(`Failed to load news (${e})`))
-  }, [ticker])
+  }, [ticker, row])
 
   if (error) return <p className="text-xs text-red-500">{error}</p>
   if (!articles) return (
@@ -700,14 +732,21 @@ function NewsPanel({ ticker }: { ticker: string }) {
       Loading news…
     </div>
   )
-  if (!articles.length) return <p className="text-xs text-slate-400 italic">No recent news found.</p>
+  if (!articles.length) return (
+    <p className="text-xs text-slate-400 italic">
+      No recent news found.
+    </p>
+  )
 
   return (
     <div className="space-y-2.5">
-      {articles.map((a, i) => (
-        <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
-          className="flex flex-col gap-0.5 p-2.5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-colors group">
-          <span className="text-sm font-semibold text-slate-800 group-hover:text-blue-700 leading-snug">{a.title}</span>
+      {articles.map((a, i) => {
+        const hasUrl = Boolean(a.url)
+        const CardTag = hasUrl ? 'a' : 'div'
+        return (
+        <CardTag key={i} href={hasUrl ? a.url : undefined} target={hasUrl ? '_blank' : undefined} rel={hasUrl ? 'noopener noreferrer' : undefined}
+          className={`flex flex-col gap-0.5 p-2.5 rounded-lg border border-slate-200 transition-colors group ${hasUrl ? 'hover:border-blue-300 hover:bg-blue-50' : 'bg-slate-50'}`}>
+          <span className={`text-sm font-semibold leading-snug ${hasUrl ? 'text-slate-800 group-hover:text-blue-700' : 'text-slate-700'}`}>{a.title}</span>
           <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
             {a.publisher && <span className="font-medium text-slate-500">{a.publisher}</span>}
             {a.publisher && a.published_at && <span>·</span>}
@@ -716,8 +755,9 @@ function NewsPanel({ ticker }: { ticker: string }) {
           {a.snippet && (
             <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 mt-0.5">{a.snippet}</p>
           )}
-        </a>
-      ))}
+        </CardTag>
+        )
+      })}
     </div>
   )
 }
@@ -784,18 +824,25 @@ function TradingViewChart({ ticker }: { ticker: string }) {
 
 
 export default function StockTable({ data }: { data: any[] }) {
-  const [sortKey, setSortKey] = React.useState<string>('score')
+  const [sortKey, setSortKey] = React.useState<string>('featured_rank')
   const [filter, setFilter]   = React.useState<FilterId>('all')
   const [sortDir, setSortDir] = React.useState<'desc' | 'asc'>('desc')
 
   const filtered = React.useMemo(() => applyFilter(data, filter), [data, filter])
   const sorted   = React.useMemo(() => {
+    if (sortKey === 'featured_rank') {
+      return [...filtered].sort((a, b) => {
+        const aRank = a.featured_rank ?? data.indexOf(a) + 1
+        const bRank = b.featured_rank ?? data.indexOf(b) + 1
+        return sortDir === 'desc' ? aRank - bRank : bRank - aRank
+      })
+    }
     return [...filtered].sort((a, b) => {
       const diff    = (b[sortKey] ?? 0) - (a[sortKey] ?? 0)
       const ordered = sortDir === 'desc' ? diff : -diff
       return ordered !== 0 ? ordered : (b.score ?? 0) - (a.score ?? 0)
     })
-  }, [filtered, sortKey, sortDir])
+  }, [data, filtered, sortKey, sortDir])
 
   if (!data.length) {
     return (
@@ -807,6 +854,7 @@ export default function StockTable({ data }: { data: any[] }) {
   }
 
   const SORT_OPTIONS = [
+    { key: 'featured_rank',         label: 'Featured' },
     { key: 'score',                 label: 'Score' },
     { key: 'confidence',            label: 'Confidence' },
     { key: 'rsi',                   label: 'RSI' },
