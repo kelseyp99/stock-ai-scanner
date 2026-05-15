@@ -178,6 +178,34 @@ function MetricBlock({ label, value, tier, narrative, valueClass, labelTip, valu
   )
 }
 
+function formatExchangeLabel(exchange?: string | null, exchangeName?: string | null) {
+  const code = typeof exchange === 'string' ? exchange.trim().toUpperCase() : ''
+  const name = typeof exchangeName === 'string' ? exchangeName.trim() : ''
+  const raw = `${code} ${name}`.toUpperCase()
+
+  if (raw.includes('NASDAQ') || ['NMS', 'NCM', 'NGM'].includes(code)) return 'NASDAQ'
+  if (raw.includes('NYSE') || code === 'NYQ') return 'NYSE'
+  if (raw.includes('AMEX') || code === 'ASE') return 'NYSE AM'
+  return name || code || null
+}
+
+function ExchangeBadge({ exchange, exchangeName }: { exchange?: string | null; exchangeName?: string | null }) {
+  const label = formatExchangeLabel(exchange, exchangeName)
+  if (!label) return null
+
+  const code = typeof exchange === 'string' ? exchange.trim().toUpperCase() : ''
+  const name = typeof exchangeName === 'string' ? exchangeName.trim() : ''
+  const tip = name || code ? `Exchange: ${name || label}${code ? ` (${code})` : ''}` : `Exchange: ${label}`
+
+  return (
+    <Tooltip text={tip}>
+      <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </span>
+    </Tooltip>
+  )
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Metric implementations
 // ─────────────────────────────────────────────────────────────────────────────
@@ -625,8 +653,13 @@ function StockCard({ row }: { row: any }) {
           <div className="flex flex-col gap-1.5 min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-2xl font-black text-slate-900 tracking-tight leading-none">{row.ticker}</span>
-              {companyName && <span className="text-sm text-slate-500 font-medium truncate">{companyName}</span>}
+              <ExchangeBadge exchange={row.exchange} exchangeName={row.exchange_name} />
             </div>
+            {companyName && (
+              <div className="text-sm font-semibold text-slate-600 leading-snug truncate max-w-full">
+                {companyName}
+              </div>
+            )}
             <div className="flex items-center gap-1.5 flex-wrap">
               {tradeCfg && (
                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${tradeCfg.cls}`}>

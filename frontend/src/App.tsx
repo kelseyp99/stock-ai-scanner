@@ -8,6 +8,8 @@ import About from './pages/About'
 import Banner from './components/Banner'
 import AdminScheduler from './pages/AdminScheduler'
 import { WatchlistProvider } from './context/WatchlistContext'
+import { AuthProvider } from './context/AuthContext'
+import GoogleAuthButton from './components/GoogleAuthButton'
 
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error: string|null}> {
   constructor(props: any) { super(props); this.state = { error: null } }
@@ -36,68 +38,71 @@ export default function App(){
   }
 
   return (
-    <WatchlistProvider>
-      {/* Header — scrolls away naturally */}
-      <div className="app-header-wrap">
-        <header className="app-header">
-          <div className="app-header-brand">
-            <div className="app-logo-frame">
-              <img
-                src="/ThetaBrew.png"
-                alt="ThetaForge"
-                className="app-logo"
-              />
+    <AuthProvider>
+      <WatchlistProvider>
+        {/* Header — scrolls away naturally */}
+        <div className="app-header-wrap">
+          <header className="app-header">
+            <div className="app-header-brand">
+              <div className="app-logo-frame">
+                <img
+                  src="/ThetaBrew.png"
+                  alt="ThetaForge"
+                  className="app-logo"
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="app-nav-wrap">
-            <button
-              type="button"
-              className="app-menu-button"
-              aria-label="Open navigation menu"
-              aria-expanded={mobileNavOpen}
-              aria-controls="app-main-nav"
-              onClick={() => setMobileNavOpen((open) => !open)}
-            >
-              <span />
-              <span />
-              <span />
-            </button>
-            <nav
-              id="app-main-nav"
-              aria-label="Main navigation"
-              className={`app-nav ${mobileNavOpen ? 'is-open' : ''}`}
-            >
-              <button onClick={()=>changeView('dashboard')} className="mr-2">Dashboard</button>
-              <button onClick={()=>changeView('watchlist')} className="mr-2">Watchlist</button>
-              <button onClick={()=>changeView('history')} className="mr-2">History</button>
-              <button onClick={()=>changeView('settings')} className="mr-2">Settings</button>
-              <button onClick={()=>changeView('options')}>Options Lab</button>
-              <button onClick={()=>changeView('about')} className="mr-2">About</button>
-              {/* admin nav */}
-              {true && <button onClick={()=>changeView('admin')} className="ml-2">Admin</button>}
-            </nav>
-          </div>
-        </header>
-      </div>
+            <div className="app-nav-wrap">
+              <button
+                type="button"
+                className="app-menu-button"
+                aria-label="Open navigation menu"
+                aria-expanded={mobileNavOpen}
+                aria-controls="app-main-nav"
+                onClick={() => setMobileNavOpen((open) => !open)}
+              >
+                <span />
+                <span />
+                <span />
+              </button>
+              <nav
+                id="app-main-nav"
+                aria-label="Main navigation"
+                className={`app-nav ${mobileNavOpen ? 'is-open' : ''}`}
+              >
+                <button onClick={()=>changeView('dashboard')} className="mr-2">Dashboard</button>
+                <button onClick={()=>changeView('watchlist')} className="mr-2">Watchlist</button>
+                <button onClick={()=>changeView('history')} className="mr-2">History</button>
+                <button onClick={()=>changeView('settings')} className="mr-2">Settings</button>
+                <button onClick={()=>changeView('options')}>Options Lab</button>
+                <button onClick={()=>changeView('about')} className="mr-2">About</button>
+                {/* admin nav */}
+                {true && <button onClick={()=>changeView('admin')} className="ml-2">Admin</button>}
+                <GoogleAuthButton />
+              </nav>
+            </div>
+          </header>
+        </div>
 
-      {/* Sponsor banner — sticky at top once header scrolls away */}
-      <Banner />
+        {/* Sponsor banner — sticky at top once header scrolls away */}
+        <Banner />
 
-      {/* Main content */}
-      <div className="p-6">
-        <main>
-          <ErrorBoundary key={view}>
-            {view === 'dashboard' && <Dashboard />}
-            {view === 'watchlist' && <Watchlist />}
-            {view === 'history' && <History />}
-            {view === 'settings' && <Settings />}
-            {view === 'options' && <OptionsLab />}
-            {view === 'about' && <About />}
-            {view === 'admin' && <AdminScheduler />}
-          </ErrorBoundary>
-        </main>
-      </div>
-    </WatchlistProvider>
+        {/* Main content */}
+        <div className="p-6">
+          <main>
+            <ErrorBoundary key={view}>
+              {view === 'dashboard' && <Dashboard />}
+              {view === 'watchlist' && <Watchlist />}
+              {view === 'history' && <History />}
+              {view === 'settings' && <Settings />}
+              {view === 'options' && <OptionsLab />}
+              {view === 'about' && <About />}
+              {view === 'admin' && <AdminScheduler />}
+            </ErrorBoundary>
+          </main>
+        </div>
+      </WatchlistProvider>
+    </AuthProvider>
   )
 }

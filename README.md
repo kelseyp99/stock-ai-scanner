@@ -275,6 +275,34 @@ Live URL: **https://thetaforge-35430.web.app**
 
 ---
 
+## 🔐 Google Auth
+
+The frontend uses Firebase Authentication with Google sign-in. The app will still build if Firebase is not configured, but the header will show an inactive `Auth setup` button until the Vite Firebase values are present.
+
+1. In Firebase Console, open the project, go to **Authentication → Sign-in method**, and enable **Google**.
+2. Go to **Project settings → General → Your apps** and create or open the Web app.
+3. Copy the Web app config into `frontend/.env.local` for local dev, and into `frontend/.env.demo` for the static Firebase-hosted build.
+4. Add these authorized domains in **Authentication → Settings → Authorized domains**:
+   - `localhost`
+   - `thetaforge-35430.web.app`
+   - any custom ThetaForge domain you serve from
+
+Required frontend env values:
+
+```bash
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+VITE_FIREBASE_MEASUREMENT_ID=
+```
+
+Firebase web config values are public client config, not server secrets. Keep service-account keys out of the frontend.
+
+---
+
 ## 🔌 API Endpoints
 
 | Method | Route | Description |
@@ -324,6 +352,7 @@ caffeinate -s uvicorn app.main:app --port 8001
 | `DATABASE_URL` | SQLite or Postgres connection string |
 | `SCAN_INGEST_TOKEN` | Bearer token for `POST /scan/ingest` |
 | `VITE_API_URL` | Frontend API base URL (set in `frontend/.env.local`) |
+| `VITE_FIREBASE_*` | Firebase web app config used by Google sign-in |
 
 ---
 

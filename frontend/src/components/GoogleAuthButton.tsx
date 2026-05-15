@@ -1,20 +1,30 @@
 import React from 'react'
+import { useAuth } from '../context/AuthContext'
 
-export default function GoogleAuthButton({onSignIn}:{onSignIn?:()=>void}){
+export default function GoogleAuthButton(){
+  const { user, loading, error, configured, signInWithGoogle, signOutUser } = useAuth()
+
+  if (!configured) {
+    return (
+      <button type="button" className="google-auth-button is-disabled" disabled title="Add Firebase Vite env vars to enable Google sign-in">
+        Auth setup
+      </button>
+    )
+  }
+
+  const label = loading ? 'Checking...' : user ? 'Sign out' : 'Sign in'
+  const title = user?.email ? `Signed in as ${user.email}` : error || 'Sign in with Google'
+
   return (
     <button
-      onClick={()=> onSignIn ? onSignIn() : alert('Sign-in flow not configured in demo')}
-      style={{
-        padding: '10px 18px',
-        background: '#1f6feb',
-        color: '#fff',
-        border: 'none',
-        borderRadius: 10,
-        fontWeight: 700,
-        boxShadow: '0 4px 12px rgba(31,111,235,0.18)'
-      }}
+      type="button"
+      className="google-auth-button"
+      disabled={loading}
+      title={title}
+      onClick={() => user ? signOutUser() : signInWithGoogle()}
     >
-      Sign in
+      {user?.photoURL && <img src={user.photoURL} alt="" />}
+      <span>{label}</span>
     </button>
   )
 }

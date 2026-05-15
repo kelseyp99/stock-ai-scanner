@@ -1,10 +1,7 @@
 import React from 'react'
-import { getApp, getApps, initializeApp } from 'firebase/app'
-import { firebaseConfig } from '../firebase/firebaseConfig'
 import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore'
-
-if (!getApps().length) initializeApp(firebaseConfig)
-const db = getFirestore()
+import { getFirebaseApp } from '../firebase/firebaseApp'
+import { isFirebaseConfigured } from '../firebase/firebaseConfig'
 
 const AVAILABLE_INDEXES = ['SP500','NASDAQ100','RUSSELL2000','CUSTOM1']
 
@@ -16,6 +13,10 @@ const INDEX_TO_UNIVERSE: Record<string,string> = {
 const APPROX_COUNTS: Record<string,number> = { SP500: 500, NASDAQ100: 100, RUSSELL2000: 2000, CUSTOM1: 50 }
 
 export default function AdminScheduler(){
+  const db = React.useMemo(() => {
+    const app = getFirebaseApp()
+    return app ? getFirestore(app) : null
+  }, [])
   const [selected, setSelected] = React.useState<string[]>([])
   const [time, setTime] = React.useState('02:00')
   const [tz, setTz] = React.useState('America/New_York')
@@ -23,20 +24,21 @@ export default function AdminScheduler(){
   const [schedules, setSchedules] = React.useState<any[]>([])
 
   React.useEffect(()=>{
+    if (!db) return undefined
     const q = query(collection(db, 'scan_schedules'), orderBy('updatedAt','desc'))
     return onSnapshot(q, snap => {
       const out: any[] = []
       snap.forEach(d => out.push({ id: d.id, ...d.data() }))
       setSchedules(out)
     })
-  },[])
+  },[db])
 
   const toggleIndex = (idx: string)=>{
     setSelected(prev => prev.includes(idx) ? prev.filter(x=>x!==idx) : [...prev, idx])
   }
 
   const save = async ()=>{
-    if (selected.length === 0) return
+    if (!db || selected.length === 0) return
     const universeIds = selected.map(idx => INDEX_TO_UNIVERSE[idx])
     const approxTotal = selected.reduce((sum, idx) => sum + (APPROX_COUNTS[idx] ?? 0), 0)
     await addDoc(collection(db, 'scan_schedules'), {
@@ -55,11 +57,24 @@ export default function AdminScheduler(){
   }
 
   const toggleEnabled = async (id: string, enabled: boolean)=>{
+    if (!db) return
     await updateDoc(doc(db,'scan_schedules',id), { enabled: !enabled, updatedAt: serverTimestamp() })
   }
 
   const remove = async (id: string)=>{
+    if (!db) return
     await deleteDoc(doc(db,'scan_schedules',id))
+  }
+
+  if (!isFirebaseConfigured || !db) {
+    return (
+      <div className="p-6">
+        <h2 className="text-lg font-semibold mb-4">Admin Scheduler</h2>
+        <div className="bg-white p-4 rounded shadow text-sm text-gray-600">
+          Firebase is not configured yet. Add the `VITE_FIREBASE_*` values to the frontend environment and enable Google sign-in in Firebase.
+        </div>
+      </div>
+    )
   }
 
   return (

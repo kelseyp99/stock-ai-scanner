@@ -156,6 +156,22 @@ def normalize_dividend_yield(raw_yield) -> float:
     if raw <= 20.0: return round(raw, 2)
     return 0.0
 
+def normalize_exchange_info(info: dict | None) -> tuple[str | None, str | None]:
+    """Return short exchange code and display name from yfinance metadata."""
+    if not info:
+        return None, None
+    exchange = info.get('exchange') or info.get('exchangeName')
+    exchange_name = info.get('fullExchangeName') or info.get('exchangeName') or exchange
+    if isinstance(exchange, str):
+        exchange = exchange.strip().upper() or None
+    else:
+        exchange = None
+    if isinstance(exchange_name, str):
+        exchange_name = exchange_name.strip() or None
+    else:
+        exchange_name = None
+    return exchange, exchange_name
+
 def calculate_ma_spread_percent(ma20, ma50) -> float | None:
     if ma20 is None or ma50 is None or ma50 == 0: return None
     return round((ma20 - ma50) / ma50 * 100, 3)
@@ -757,6 +773,16 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
             market_cap   = info.get('marketCap', None)
             implied_vol  = info.get('impliedVolatility', None)
             company_name = info.get('longName') or info.get('shortName') or None
+            exchange, exchange_name = normalize_exchange_info(info)
+            if not exchange:
+                try:
+                    fast_info = dict(ticker_obj.fast_info or {})
+                    fast_exchange = fast_info.get('exchange')
+                    if fast_exchange:
+                        exchange = str(fast_exchange).strip().upper() or None
+                        exchange_name = exchange_name or exchange
+                except Exception:
+                    pass
             if market_cap is not None:
                 try: market_cap = float(market_cap)
                 except: market_cap = None
@@ -765,6 +791,7 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
             government_trades = _government_result.get('data') or {}
         except Exception:
             raw_yield, market_cap, implied_vol, company_name = 0, None, None, None
+            exchange, exchange_name = None, None
             news_signal = {}
             fundamentals = {}
             government_trades = {}
@@ -846,6 +873,8 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
         result = {
             'ticker': normalize_ticker(ticker),
             'company_name': company_name,
+            'exchange': exchange,
+            'exchange_name': exchange_name,
             'price':  round(price, 2) if price is not None else None,
             'rsi':    round(rsi, 2) if rsi is not None else None,
             'ma20':   round(ma20, 2) if ma20 is not None else None,
