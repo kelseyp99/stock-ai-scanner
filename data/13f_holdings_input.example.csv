@@ -1,0 +1,7 @@
+manager,ticker,issuer,report_date,filing_date,shares,value
+Berkshire Hathaway,AAPL,Apple Inc,2025-12-31,2026-02-14,300000000,75000000000
+Berkshire Hathaway,AAPL,Apple Inc,2025-09-30,2025-11-14,280000000,65000000000
+Berkshire Hathaway,KO,Coca-Cola Co,2025-12-31,2026-02-14,400000000,25000000000
+Berkshire Hathaway,KO,Coca-Cola Co,2025-09-30,2025-11-14,400000000,24000000000
+Example Fund,KALU,Kaiser Aluminum Corporation,2025-12-31,2026-02-14,150000,12000000
+Example Fund,KALU,Kaiser Aluminum Corporation,2025-09-30,2025-11-14,50000,3500000

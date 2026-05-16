@@ -158,6 +158,17 @@ def _load_institutional_change(ticker: str) -> dict[str, Any]:
                 "Stable"
             ),
             "institutional_ownership_source": row.get("source") or "13f_snapshot",
+            "institutional_13f_latest_period": row.get("institutional_13f_latest_period"),
+            "institutional_13f_previous_period": row.get("institutional_13f_previous_period"),
+            "institutional_13f_value": _safe_float(row.get("institutional_13f_value")),
+            "institutional_13f_previous_value": _safe_float(row.get("institutional_13f_previous_value")),
+            "institutional_13f_value_delta": _safe_float(row.get("institutional_13f_value_delta")),
+            "institutional_13f_shares": _safe_float(row.get("institutional_13f_shares")),
+            "institutional_13f_shares_delta": _safe_float(row.get("institutional_13f_shares_delta")),
+            "institutional_13f_manager_count": int(row.get("institutional_13f_manager_count") or 0),
+            "institutional_13f_new_managers": row.get("institutional_13f_new_managers") or [],
+            "institutional_13f_top_managers": row.get("institutional_13f_top_managers") or [],
+            "institutional_13f_notable": row.get("institutional_13f_notable") or [],
         }
     except Exception as e:
         logger.debug("Institutional ownership lookup failed for %s: %s", ticker, e)

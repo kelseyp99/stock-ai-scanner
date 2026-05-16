@@ -139,6 +139,7 @@ into score, risk, setup quality, analysis text, and options strategy selection.
 Supported fields:
 - `next_earnings_date`, `days_to_earnings`, `earnings_window`
 - `institutional_ownership_delta_pct`, `institutional_ownership_trend`
+- `institutional_13f_latest_period`, `institutional_13f_value_delta`, `institutional_13f_top_managers`
 - `gov_trade_signal`, `gov_trade_net_amount_90d`, `gov_trade_members`
 - `dividend_yield_percent`
 
@@ -156,6 +157,10 @@ Example institutional ownership JSON:
 {
   "AAPL": {
     "institutional_ownership_delta_pct": 2.7,
+    "institutional_ownership_trend": "Accumulation",
+    "institutional_13f_latest_period": "2025-12-31",
+    "institutional_13f_value_delta": 10000000000,
+    "institutional_13f_top_managers": ["Berkshire Hathaway"],
     "source": "sec_13f_qoq"
   },
   "TSLA": {
@@ -163,6 +168,35 @@ Example institutional ownership JSON:
     "source": "sec_13f_qoq"
   }
 }
+```
+
+#### Build institutional signals from 13F data
+
+13F filings are delayed up to 45 days, so the scanner treats them as
+confirmation/context rather than a required pick filter. When configured, 13F
+activity can lightly affect score, populate the `13F` filter, reserve a couple
+of diversity slots, and appear on the dashboard's `13F` page.
+
+Normalize extracted 13F holdings rows:
+```bash
+.venv/bin/python scripts/ingest_13f_filings.py \
+  --input data/13f_holdings_input.example.csv \
+  --output data/institutional_ownership_changes.json
+```
+
+For SEC information-table XML, provide a CUSIP map because official 13F tables
+generally include CUSIP, not ticker:
+```bash
+.venv/bin/python scripts/ingest_13f_filings.py \
+  --info-table-xml /path/to/form13fInfoTable.xml \
+  --cusip-map data/cusip_ticker_map.csv \
+  --manager "Example Manager" \
+  --output data/institutional_ownership_changes.json
+```
+
+Then point the scanner at the output:
+```bash
+INSTITUTIONAL_OWNERSHIP_CHANGES_FILE=/opt/stock-ai-scanner/data/institutional_ownership_changes.json
 ```
 
 Example government trades JSON:
@@ -223,6 +257,11 @@ Normalize those rows into the scanner format:
   --output data/government_trades.json
 ```
 
+The `Congress` page reads this same output and shows which officials bought or
+sold each ticker, including member names, estimated amounts, trade dates,
+disclosure dates, and source links when present. The scanner weights this
+lightly because STOCK Act disclosures are delayed.
+
 Discover House PTR PDFs from the official yearly bulk ZIP:
 ```bash
 .venv/bin/python scripts/ingest_government_trades.py \
@@ -243,6 +282,47 @@ GOVERNMENT_TRADES_FILE=/opt/stock-ai-scanner/data/government_trades.json
   --top 50 \
   --callback-url https://your-tunnel.trycloudflare.com/scan/ingest
 ```
+
+### ETF scanner
+
+ETFs use the same technical scanner engine as stocks, but run as a separate
+nightly job and write `etf_results_latest.json`. The static Firebase deploy
+automatically includes that file when present, and the frontend shows it on the
+`ETFs` page with ETF-aware options strategy notes.
+
+```bash
+.venv/bin/python scripts/run_etf_scan.py --workers 8 --top 20
+```
+
+The local nightly wrapper now runs stocks, ETFs, crypto, static build, and
+Firebase deploy by default:
+```bash
+.venv/bin/python scripts/run_local_scan_static_deploy.py
+```
+
+The default ETF universe lives at `data/etf_universe.json`; add or remove ETFs
+there without touching scanner code.
+
+### Crypto scanner
+
+Large-cap crypto analysis runs as a separate nightly snapshot using CoinGecko
+market data and writes `crypto_results_latest.json`. The static Firebase deploy
+automatically includes that file when present, and the frontend shows it on the
+`Crypto` page with market cap rank, momentum windows, volume intensity, ATH
+distance, and position strategy notes.
+
+```bash
+.venv/bin/python scripts/run_crypto_scan.py --limit 30 --top 20
+```
+
+The same local nightly wrapper includes crypto by default. For a temporary
+stock/ETF-only run, pass `--skip-crypto`.
+```bash
+.venv/bin/python scripts/run_local_scan_static_deploy.py --skip-crypto
+```
+
+The scanner works without a key against CoinGecko's public endpoint, but it also
+uses `COINGECKO_API_KEY` or `CG_API_KEY` from the environment when present.
 
 ### Options
 | Flag | Default | Description |
@@ -309,6 +389,8 @@ Firebase web config values are public client config, not server secrets. Keep se
 |---|---|---|
 | `GET` | `/scan/latest` | Returns latest scan results (deduped, normalised) |
 | `POST` | `/scan/ingest` | Accepts scan payload from remote worker (bearer token auth) |
+| `GET` | `/scan/etfs/latest` | Returns latest ETF scan results |
+| `GET` | `/scan/crypto/latest` | Returns latest large-cap crypto scan results |
 | `GET` | `/news/{ticker}` | Fetches recent news headlines for a ticker |
 | `GET` | `/scheduler/settings` | Returns current scheduler configuration |
 | `POST` | `/scheduler/settings` | Save scheduler settings + register cron job |

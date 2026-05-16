@@ -6,6 +6,8 @@
   "scripts": {
     "build:demo": "cd frontend && npm ci && npm run build:demo",
     "deploy:static": ".venv/bin/python scripts/deploy_static_firebase.py",
+    "scan:etfs": ".venv/bin/python scripts/run_etf_scan.py",
+    "scan:crypto": ".venv/bin/python scripts/run_crypto_scan.py",
     "scan:deploy:local": ".venv/bin/python scripts/run_local_scan_static_deploy.py",
     "deploy:firebase": "cd frontend && firebase deploy --only hosting",
     "backup:manual": "bash Backups/Scripts/manual_backup.sh"

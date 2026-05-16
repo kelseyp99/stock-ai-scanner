@@ -102,6 +102,7 @@ def _sort_results(results: list) -> list:
 #   breakout      — trade_type in (Breakout, Speculative Breakout, Vol Expansion)
 #   dividend      — Dividend category
 #   news_catalyst — news_boost >= 2 (extraordinary positive news)
+#   institutional — 13F/institutional accumulation or distribution signal
 #
 _BUCKETS = [
     ('oversold',      lambda r: (r.get('rsi') or 99) < 38 or r.get('trade_type') == 'Mean Reversion Setup'),
@@ -109,6 +110,7 @@ _BUCKETS = [
     ('breakout',      lambda r: r.get('trade_type') in ('Breakout Trade', 'Speculative Breakout', 'Volatility Expansion')),
     ('dividend',      lambda r: 'Dividend' in (r.get('categories') or [])),
     ('news_catalyst', lambda r: (r.get('news_boost') or 0) >= 2),
+    ('institutional', lambda r: r.get('institutional_ownership_delta_pct') is not None and abs(r.get('institutional_ownership_delta_pct') or 0) >= 2),
 ]
 BUCKET_MIN       = 2   # guaranteed slots per bucket (if candidates exist above threshold)
 MIN_BUCKET_SCORE = 2   # minimum composite score to qualify for a reserved slot

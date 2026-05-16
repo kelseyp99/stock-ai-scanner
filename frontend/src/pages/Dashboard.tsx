@@ -93,14 +93,8 @@ export default function Dashboard() {
           {totalScanned > 0 && (
             <span className="text-sm text-gray-500">{totalScanned} tickers scanned</span>
           )}
-          {!DEMO_MODE && (
-            <button
-              onClick={refresh}
-              disabled={loading}
-              className="px-4 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
-            >
-              {loading ? 'Scanning…' : 'Refresh'}
-            </button>
+          {!DEMO_MODE && loading && (
+            <span className="text-sm text-gray-500">Loading latest scan...</span>
           )}
           {DEMO_MODE && (
             <span className="text-xs text-gray-500 italic">Static Demo Mode</span>

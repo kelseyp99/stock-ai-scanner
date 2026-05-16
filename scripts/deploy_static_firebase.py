@@ -21,6 +21,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
 RESULTS_JSON = ROOT / "scan_results_latest.json"
+ETF_RESULTS_JSON = ROOT / "etf_results_latest.json"
+CRYPTO_RESULTS_JSON = ROOT / "crypto_results_latest.json"
 DEMO_DATA_TS = FRONTEND / "src" / "data" / "demoScanResults.ts"
 DEFAULT_FIREBASE_PROJECT = "thetaforge-35430"
 
@@ -30,6 +32,8 @@ CATEGORY_ORDER = [
     "Extreme Volatility",
     "High Volatility",
     "Dividend",
+    "Institutional Accumulation",
+    "Institutional Distribution",
     "Oversold",
     "Pullback Risk",
     "Speculative / High Risk",
@@ -86,8 +90,50 @@ def build_by_category(scan: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     return by_category
 
 
+def build_institutional_activity(scan: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = [
+        row for row in collect_category_source(scan)
+        if row.get("institutional_ownership_delta_pct") is not None
+    ]
+    rows.sort(
+        key=lambda row: (
+            -abs(row.get("institutional_ownership_delta_pct") or 0),
+            -(row.get("institutional_13f_value_delta") or 0),
+            -(row.get("score") or 0),
+        )
+    )
+    return rows[:40]
+
+
+def build_government_activity(scan: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = [
+        row for row in collect_category_source(scan)
+        if (row.get("gov_trade_buy_count_90d") or row.get("gov_trade_sell_count_90d") or row.get("gov_trade_recent_trades"))
+    ]
+    rows.sort(
+        key=lambda row: (
+            -abs(row.get("gov_trade_net_amount_90d") or 0),
+            -((row.get("gov_trade_buy_count_90d") or 0) + (row.get("gov_trade_sell_count_90d") or 0)),
+            -(row.get("score") or 0),
+        )
+    )
+    return rows[:40]
+
+
 def build_static_payload(scan: dict[str, Any]) -> dict[str, Any]:
     top_ranked = scan.get("global_top") or scan.get("top_ranked") or []
+    etf_scan = {}
+    if ETF_RESULTS_JSON.exists():
+        try:
+            etf_scan = json.loads(ETF_RESULTS_JSON.read_text())
+        except Exception:
+            etf_scan = {}
+    crypto_scan = {}
+    if CRYPTO_RESULTS_JSON.exists():
+        try:
+            crypto_scan = json.loads(CRYPTO_RESULTS_JSON.read_text())
+        except Exception:
+            crypto_scan = {}
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "scan_started_at": scan.get("scan_started_at"),
@@ -97,6 +143,10 @@ def build_static_payload(scan: dict[str, Any]) -> dict[str, Any]:
         "summary": scan.get("ai_summary") or scan.get("summary") or "",
         "top_ranked": top_ranked,
         "by_category": scan.get("by_category") or build_by_category(scan),
+        "institutional_activity": scan.get("institutional_activity") or build_institutional_activity(scan),
+        "government_activity": scan.get("government_activity") or build_government_activity(scan),
+        "etf_recommendations": etf_scan,
+        "crypto_analysis": crypto_scan,
     }
     return payload
 

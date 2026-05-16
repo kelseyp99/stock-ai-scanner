@@ -100,6 +100,7 @@ def _normalize_rows(ticker: str, rows: Any) -> dict[str, Any]:
 
     if trade_rows:
         members_seen: list[str] = []
+        recent_trades: list[dict[str, Any]] = []
         net = 0.0
         buys = sells = 0
         for trade in trade_rows:
@@ -113,6 +114,21 @@ def _normalize_rows(ticker: str, rows: Any) -> dict[str, Any]:
             member = trade.get("member") or trade.get("representative") or trade.get("senator")
             if member and member not in members_seen:
                 members_seen.append(str(member))
+            normalized_type = (
+                "Purchase" if "purchase" in trade_type or "buy" in trade_type else
+                "Sale" if "sale" in trade_type or "sell" in trade_type else
+                str(trade.get("transaction_type") or trade.get("type") or "")
+            )
+            recent_trades.append({
+                "member": member or "",
+                "chamber": trade.get("chamber") or "",
+                "transaction_type": normalized_type,
+                "amount_midpoint": amount,
+                "trade_date": trade.get("trade_date") or trade.get("transaction_date"),
+                "disclosure_date": trade.get("disclosure_date"),
+                "asset": trade.get("asset") or trade.get("asset_description") or trade.get("description") or "",
+                "source_url": trade.get("source_url") or trade.get("url") or "",
+            })
             if not latest_trade_date:
                 latest_trade_date = trade.get("trade_date") or trade.get("transaction_date")
             if not latest_disclosure_date:
@@ -127,6 +143,8 @@ def _normalize_rows(ticker: str, rows: Any) -> dict[str, Any]:
         sell_count = sell_count or sells
         net_amount = net_amount if net_amount is not None else net
         members = members or members_seen
+    else:
+        recent_trades = summary.get("gov_trade_recent_trades") or []
 
     net_amount = net_amount or 0.0
     signal = None
@@ -144,6 +162,7 @@ def _normalize_rows(ticker: str, rows: Any) -> dict[str, Any]:
         "gov_trade_latest_trade_date": latest_trade_date,
         "gov_trade_latest_disclosure_date": latest_disclosure_date,
         "gov_trade_members": members[:6] if isinstance(members, list) else [],
+        "gov_trade_recent_trades": recent_trades[:12] if isinstance(recent_trades, list) else [],
         "gov_trade_signal": signal,
         "gov_trade_source": source,
     }
@@ -162,6 +181,7 @@ def get_government_trades_for_ticker(ticker: str) -> dict[str, Any]:
             "gov_trade_latest_trade_date": None,
             "gov_trade_latest_disclosure_date": None,
             "gov_trade_members": [],
+            "gov_trade_recent_trades": [],
             "gov_trade_signal": None,
             "gov_trade_source": None,
         }

@@ -65,6 +65,56 @@ def _group_by_category(results: list, limit_per_category: int = 5) -> dict:
         by_cat[cat] = _sort_results(members)[:limit_per_category]
     return by_cat
 
+
+def _build_institutional_activity(data: dict) -> list:
+    rows = []
+    rows.extend(data.get('global_top') or data.get('top_ranked') or [])
+    for universe in (data.get('by_universe') or {}).values():
+        if isinstance(universe, dict):
+            rows.extend(universe.get('top') or universe.get('results') or [])
+    seen = set()
+    out = []
+    for row in rows:
+        ticker = row.get('ticker')
+        if not ticker or ticker in seen:
+            continue
+        seen.add(ticker)
+        if row.get('institutional_ownership_delta_pct') is not None:
+            out.append(row)
+    out.sort(
+        key=lambda row: (
+            -abs(row.get('institutional_ownership_delta_pct') or 0),
+            -(row.get('institutional_13f_value_delta') or 0),
+            -(row.get('score') or 0),
+        )
+    )
+    return out[:40]
+
+
+def _build_government_activity(data: dict) -> list:
+    rows = []
+    rows.extend(data.get('global_top') or data.get('top_ranked') or [])
+    for universe in (data.get('by_universe') or {}).values():
+        if isinstance(universe, dict):
+            rows.extend(universe.get('top') or universe.get('results') or [])
+    seen = set()
+    out = []
+    for row in rows:
+        ticker = row.get('ticker')
+        if not ticker or ticker in seen:
+            continue
+        seen.add(ticker)
+        if row.get('gov_trade_buy_count_90d') or row.get('gov_trade_sell_count_90d') or row.get('gov_trade_recent_trades'):
+            out.append(row)
+    out.sort(
+        key=lambda row: (
+            -abs(row.get('gov_trade_net_amount_90d') or 0),
+            -((row.get('gov_trade_buy_count_90d') or 0) + (row.get('gov_trade_sell_count_90d') or 0)),
+            -(row.get('score') or 0),
+        )
+    )
+    return out[:40]
+
 @router.get('/scan', response_model=List[schemas.ScanResultOut])
 def scan_all(sample: int = 50, db: Session = Depends(get_db)):
     tickers = get_tickers(db, limit=sample)
@@ -95,6 +145,8 @@ def scan_grouped(sample: int = 50, db: Session = Depends(get_db)):
     })
 
 _RESULTS_JSON = pathlib.Path(__file__).parents[3] / 'scan_results_latest.json'
+_ETF_RESULTS_JSON = pathlib.Path(__file__).parents[3] / 'etf_results_latest.json'
+_CRYPTO_RESULTS_JSON = pathlib.Path(__file__).parents[3] / 'crypto_results_latest.json'
 _PROJECT_ROOT = pathlib.Path(__file__).parents[3]
 _STATIC_DEPLOY_LOG = _PROJECT_ROOT / 'static_deploy_latest.log'
 
@@ -130,6 +182,8 @@ def scan_latest():
         data['by_category'] = {k: v.get('results', v) for k, v in data['by_universe'].items()}
     data.setdefault('top_ranked', [])
     data.setdefault('by_category', {})
+    data.setdefault('institutional_activity', _build_institutional_activity(data))
+    data.setdefault('government_activity', _build_government_activity(data))
     data.setdefault('summary', data.get('ai_summary', ''))
     data.setdefault('total_scanned', data.get('total_hits', 0))
     # Deduplicate top_ranked by ticker (same ticker may appear in multiple universes)
@@ -141,6 +195,32 @@ def scan_latest():
             seen.add(t)
             deduped.append(item)
     data['top_ranked'] = deduped
+    return JSONResponse(content=data)
+
+
+@router.get('/scan/etfs/latest')
+def scan_etfs_latest():
+    """Serve the most recent ETF scan written by scripts/run_etf_scan.py."""
+    if not _ETF_RESULTS_JSON.exists():
+        raise HTTPException(status_code=404, detail='No ETF scan results yet. Run scripts/run_etf_scan.py first.')
+    with open(_ETF_RESULTS_JSON) as f:
+        data = json.load(f)
+    data.setdefault('top_ranked', [])
+    data.setdefault('summary', '')
+    data.setdefault('total_scanned', data.get('total_hits', 0))
+    return JSONResponse(content=data)
+
+
+@router.get('/scan/crypto/latest')
+def scan_crypto_latest():
+    """Serve the most recent crypto scan written by scripts/run_crypto_scan.py."""
+    if not _CRYPTO_RESULTS_JSON.exists():
+        raise HTTPException(status_code=404, detail='No crypto scan results yet. Run scripts/run_crypto_scan.py first.')
+    with open(_CRYPTO_RESULTS_JSON) as f:
+        data = json.load(f)
+    data.setdefault('top_ranked', [])
+    data.setdefault('summary', '')
+    data.setdefault('total_scanned', data.get('total_hits', 0))
     return JSONResponse(content=data)
 
 

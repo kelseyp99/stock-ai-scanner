@@ -816,12 +816,21 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
         institutional_ownership_delta_pct  = fundamentals.get('institutional_ownership_delta_pct')
         institutional_ownership_trend      = fundamentals.get('institutional_ownership_trend')
         institutional_ownership_source     = fundamentals.get('institutional_ownership_source')
+        institutional_13f_latest_period    = fundamentals.get('institutional_13f_latest_period')
+        institutional_13f_previous_period  = fundamentals.get('institutional_13f_previous_period')
+        institutional_13f_value            = fundamentals.get('institutional_13f_value')
+        institutional_13f_value_delta      = fundamentals.get('institutional_13f_value_delta')
+        institutional_13f_manager_count    = fundamentals.get('institutional_13f_manager_count') or 0
+        institutional_13f_new_managers     = fundamentals.get('institutional_13f_new_managers') or []
+        institutional_13f_top_managers     = fundamentals.get('institutional_13f_top_managers') or []
+        institutional_13f_notable          = fundamentals.get('institutional_13f_notable') or []
         gov_trade_buy_count_90d            = government_trades.get('gov_trade_buy_count_90d') or 0
         gov_trade_sell_count_90d           = government_trades.get('gov_trade_sell_count_90d') or 0
         gov_trade_net_amount_90d           = government_trades.get('gov_trade_net_amount_90d') or 0
         gov_trade_latest_trade_date        = government_trades.get('gov_trade_latest_trade_date')
         gov_trade_latest_disclosure_date   = government_trades.get('gov_trade_latest_disclosure_date')
         gov_trade_members                  = government_trades.get('gov_trade_members') or []
+        gov_trade_recent_trades            = government_trades.get('gov_trade_recent_trades') or []
         gov_trade_signal                   = government_trades.get('gov_trade_signal')
         gov_trade_source                   = government_trades.get('gov_trade_source')
 
@@ -904,12 +913,21 @@ def scan_ticker(ticker: str, period_days: int = 120, debug: bool = False, sessio
             'institutional_ownership_delta_pct': institutional_ownership_delta_pct,
             'institutional_ownership_trend':     institutional_ownership_trend,
             'institutional_ownership_source':    institutional_ownership_source,
+            'institutional_13f_latest_period':   institutional_13f_latest_period,
+            'institutional_13f_previous_period': institutional_13f_previous_period,
+            'institutional_13f_value':           institutional_13f_value,
+            'institutional_13f_value_delta':     institutional_13f_value_delta,
+            'institutional_13f_manager_count':   institutional_13f_manager_count,
+            'institutional_13f_new_managers':    institutional_13f_new_managers,
+            'institutional_13f_top_managers':    institutional_13f_top_managers,
+            'institutional_13f_notable':         institutional_13f_notable,
             'gov_trade_buy_count_90d':           gov_trade_buy_count_90d,
             'gov_trade_sell_count_90d':          gov_trade_sell_count_90d,
             'gov_trade_net_amount_90d':          gov_trade_net_amount_90d,
             'gov_trade_latest_trade_date':       gov_trade_latest_trade_date,
             'gov_trade_latest_disclosure_date':  gov_trade_latest_disclosure_date,
             'gov_trade_members':                 gov_trade_members,
+            'gov_trade_recent_trades':           gov_trade_recent_trades,
             'gov_trade_signal':                  gov_trade_signal,
             'gov_trade_source':                  gov_trade_source,
             'market_cap':             int(market_cap) if market_cap is not None else None,

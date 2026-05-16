@@ -5,7 +5,7 @@ import { useWatchlist } from '../context/WatchlistContext'
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
-type FilterId = 'all' | 'momentum' | 'oversold' | 'low-vol' | 'dividend' | 'options' | 'extreme' | 'mean-reversion' | 'squeeze'
+type FilterId = 'all' | 'momentum' | 'oversold' | 'low-vol' | 'dividend' | 'options' | 'extreme' | 'mean-reversion' | 'squeeze' | 'institutional'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Company names
@@ -95,6 +95,7 @@ const FILTERS: { id: FilterId; label: string; icon: string; tip: string }[] = [
   { id: 'oversold',       label: 'Oversold',    icon: '💚', tip: 'Stocks with RSI below 35 — they\'ve sold off hard and may be due for a mean-reversion bounce. Higher risk but strong reward-to-risk if timed correctly.' },
   { id: 'mean-reversion', label: 'Mean Rev',    icon: '🔄', tip: 'Stocks that have pulled back significantly from their average and are set up to snap back. Look for price near or below MA20 with oversold RSI.' },
   { id: 'squeeze',        label: 'Vol Squeeze', icon: '🌀', tip: 'Volatility Compression — ATR has contracted well below its 20-day average. Like a coiled spring: tight ranges historically precede large directional moves. Direction unknown — wait for the breakout.' },
+  { id: 'institutional',  label: '13F',         icon: '🏦', tip: 'Stocks with institutional ownership changes from configured 13F data. Because 13F filings are delayed, treat this as conviction context rather than a primary signal.' },
   { id: 'dividend',       label: 'Dividend',    icon: '💰', tip: 'Stocks with a dividend yield above 0. Good candidates for covered call income strategies or income-focused buy-and-hold positions.' },
   { id: 'options',        label: 'High Vol',    icon: '⚡', tip: 'Stocks with ATR% ≥ 3.0 — elevated daily range makes them ideal for options plays (wide premiums, faster moves). Use smaller position sizes.' },
   { id: 'low-vol',        label: 'Low Vol',     icon: '🛡️', tip: 'Stocks with ATR% below 2.0 — stable, low-volatility movers. Great for covered calls, conservative trend holds, or accounts that need to limit drawdown.' },
@@ -108,6 +109,7 @@ function applyFilter(data: any[], filter: FilterId): any[] {
     case 'oversold':       return data.filter(r => cats(r).includes('Oversold'))
     case 'mean-reversion': return data.filter(r => r.risk_profile === 'Mean Reversion' || cats(r).includes('Oversold'))
     case 'squeeze':        return data.filter(r => r.squeeze === true || cats(r).includes('🌀 Volatility Compression'))
+    case 'institutional':  return data.filter(r => r.institutional_ownership_delta_pct != null)
     case 'dividend':       return data.filter(r => cats(r).includes('Dividend'))
     case 'options':        return data.filter(r => r.atr_pct != null && r.atr_pct >= 3.0)
     case 'low-vol':        return data.filter(r => r.atr_pct != null && r.atr_pct < 2.0)
@@ -756,26 +758,28 @@ function StockCard({ row }: { row: any }) {
         </div>
       )}
 
-      {/* ── Expand toggle ── */}
-      <button
-        onClick={() => setExpanded(e => !e)}
-        className="w-full px-4 py-2 text-xs font-semibold text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors border-t border-slate-100 flex items-center justify-center gap-1"
-      >
-        {expanded ? '▲ Show less' : '▼ Chart · News · Zones · Options · Analysis'}
-      </button>
+      {/* ── Detail tabs ── */}
+      <div className="flex bg-slate-50 border-t border-slate-100 overflow-x-auto">
+        {(['chart', 'news', 'zones', 'options', 'analysis'] as const).map(t => (
+          <button key={t} onClick={() => { setTab(t); setExpanded(true) }}
+            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wide transition-colors whitespace-nowrap px-3
+              ${expanded && tab === t ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'text-slate-400 hover:text-slate-600 hover:bg-blue-50'}`}>
+            {t === 'chart' ? '📈 Chart' : t === 'news' ? '📰 News' : t === 'zones' ? '🎯 Zones' : t === 'options' ? '⚡ Options' : '📚 Analysis'}
+          </button>
+        ))}
+        {expanded && (
+          <button
+            onClick={() => setExpanded(false)}
+            className="shrink-0 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-400 hover:text-slate-600"
+          >
+            Hide
+          </button>
+        )}
+      </div>
 
       {/* ── Expanded detail ── */}
       {expanded && (
         <div className="border-t border-slate-100">
-          <div className="flex bg-slate-50 border-b border-slate-100 overflow-x-auto">
-            {(['chart', 'news', 'zones', 'options', 'analysis'] as const).map(t => (
-              <button key={t} onClick={() => setTab(t)}
-                className={`flex-1 py-2 text-xs font-bold uppercase tracking-wide transition-colors whitespace-nowrap px-3
-                  ${tab === t ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                {t === 'chart' ? '📈 Chart' : t === 'news' ? '📰 News' : t === 'zones' ? '🎯 Zones' : t === 'options' ? '⚡ Options' : '📚 Analysis'}
-              </button>
-            ))}
-          </div>
           <div className="px-4 py-4 space-y-4">
             {tab === 'chart'    && <TradingViewChart ticker={row.ticker} />}
             {tab === 'news'     && <NewsPanel row={row} />}
@@ -963,7 +967,7 @@ export default function StockTable({ data }: { data: any[] }) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-gray-400">
         <span className="text-6xl mb-4">📭</span>
-        <p className="text-sm font-medium">No scan results — hit Refresh to run a scan</p>
+        <p className="text-sm font-medium">No scan results available from the latest nightly run</p>
       </div>
     )
   }
