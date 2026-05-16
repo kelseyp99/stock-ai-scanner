@@ -33,6 +33,20 @@ export default function InstitutionalActivity() {
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
 
+  const summary = React.useMemo(() => {
+    const accumulation = rows.filter(row => Number(row.institutional_ownership_delta_pct || 0) >= 2)
+    const distribution = rows.filter(row => Number(row.institutional_ownership_delta_pct || 0) <= -2)
+    const notable = rows.filter(row => (row.institutional_13f_notable ?? []).length > 0)
+    const newHolders = rows.reduce((sum, row) => sum + (row.institutional_13f_new_managers?.length || 0), 0)
+    const topAccumulation = [...accumulation]
+      .sort((a, b) => Number(b.institutional_ownership_delta_pct || 0) - Number(a.institutional_ownership_delta_pct || 0))
+      .slice(0, 5)
+    const topDistribution = [...distribution]
+      .sort((a, b) => Number(a.institutional_ownership_delta_pct || 0) - Number(b.institutional_ownership_delta_pct || 0))
+      .slice(0, 5)
+    return { accumulation, distribution, notable, newHolders, topAccumulation, topDistribution }
+  }, [rows])
+
   React.useEffect(() => {
     async function load() {
       setLoading(true)
@@ -65,6 +79,65 @@ export default function InstitutionalActivity() {
 
       {loading && <div className="text-sm text-slate-500">Loading 13F activity...</div>}
       {error && <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+      {!loading && !error && rows.length > 0 && (
+        <section className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <div className="grid grid-cols-2 gap-3 text-xs md:grid-cols-4">
+            <div className="rounded bg-emerald-50 px-3 py-2">
+              <div className="font-bold uppercase text-emerald-700">Accumulation</div>
+              <div className="text-xl font-black text-emerald-800">{summary.accumulation.length}</div>
+            </div>
+            <div className="rounded bg-red-50 px-3 py-2">
+              <div className="font-bold uppercase text-red-700">Distribution</div>
+              <div className="text-xl font-black text-red-800">{summary.distribution.length}</div>
+            </div>
+            <div className="rounded bg-blue-50 px-3 py-2">
+              <div className="font-bold uppercase text-blue-700">Notable Notes</div>
+              <div className="text-xl font-black text-blue-800">{summary.notable.length}</div>
+            </div>
+            <div className="rounded bg-slate-50 px-3 py-2">
+              <div className="font-bold uppercase text-slate-500">New Holders</div>
+              <div className="text-xl font-black text-slate-800">{summary.newHolders}</div>
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 gap-3 text-xs lg:grid-cols-2">
+            {summary.topAccumulation.length > 0 && (
+              <div>
+                <div className="font-black uppercase tracking-wide text-emerald-700">Top accumulation</div>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {summary.topAccumulation.map(row => (
+                    <span key={`acc-${row.ticker}`} className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 font-bold text-emerald-800">
+                      {row.ticker} {formatPct(row.institutional_ownership_delta_pct)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {summary.topDistribution.length > 0 && (
+              <div>
+                <div className="font-black uppercase tracking-wide text-red-700">Top distribution</div>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {summary.topDistribution.map(row => (
+                    <span key={`dist-${row.ticker}`} className="rounded border border-red-200 bg-red-50 px-2 py-1 font-bold text-red-800">
+                      {row.ticker} {formatPct(row.institutional_ownership_delta_pct)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {summary.notable.length > 0 && (
+            <div className="mt-3 space-y-1 text-xs text-slate-600">
+              {summary.notable.slice(0, 4).map(row => (
+                <div key={`note-${row.ticker}`}>
+                  <span className="font-black text-slate-800">{row.ticker}:</span> {(row.institutional_13f_notable ?? []).slice(0, 2).join(' · ')}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
       {!loading && !error && rows.length === 0 && (
         <div className="rounded border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
           No 13F activity file is configured yet. Generate one with `scripts/ingest_13f_filings.py`.

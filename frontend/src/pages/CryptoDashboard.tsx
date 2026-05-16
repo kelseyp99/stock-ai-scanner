@@ -49,6 +49,25 @@ function MetricBlock({ label, value, tier, narrative, valueClass }: {
   )
 }
 
+function ScoreBadge({ score, percentileLabel }: {
+  score: number
+  percentileLabel?: string | null
+}) {
+  const cls =
+    score >= 10 ? 'bg-orange-500 text-white ring-2 ring-orange-300' :
+    score >= 7 ? 'bg-green-500 text-white ring-2 ring-green-300' :
+    score >= 4 ? 'bg-blue-500 text-white' :
+    score >= 0 ? 'bg-slate-200 text-slate-700' :
+      'bg-red-100 text-red-700'
+  const title = [`Score: ${score}`, percentileLabel ?? ''].filter(Boolean).join(' | ')
+  return (
+    <div title={title} className={`flex min-w-[52px] flex-col items-center justify-center rounded-xl px-3 py-1.5 shadow-sm ${cls}`}>
+      <span className="text-2xl font-black leading-none tabular-nums">{score}</span>
+      {percentileLabel && <span className="mt-0.5 whitespace-nowrap text-[10px] font-semibold leading-tight opacity-90">{percentileLabel}</span>}
+    </div>
+  )
+}
+
 function momentumMetric(value: any, windowLabel: string) {
   const n = Number(value)
   if (!Number.isFinite(n)) return { value: '—' }
@@ -305,8 +324,7 @@ function CryptoCard({ row }: { row: any }) {
             <div className="text-sm font-semibold text-slate-600 truncate">{row.name}</div>
           </div>
           <div className="text-right shrink-0">
-            <div className="text-xl font-black text-slate-800">{Number(row.score || 0).toFixed(0)}</div>
-            <div className="text-[10px] font-bold uppercase text-slate-400">Score</div>
+            <ScoreBadge score={Number(row.score || 0)} percentileLabel={row.percentile_label} />
           </div>
         </div>
 

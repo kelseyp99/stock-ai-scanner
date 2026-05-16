@@ -5,6 +5,7 @@ import Settings from './pages/Settings'
 import OptionsLab from './pages/OptionsLab'
 import EtfDashboard from './pages/EtfDashboard'
 import CryptoDashboard from './pages/CryptoDashboard'
+import ReflagOpportunities from './pages/ReflagOpportunities'
 import About from './pages/About'
 import InstitutionalActivity from './pages/InstitutionalActivity'
 import CongressionalActivity from './pages/CongressionalActivity'
@@ -77,6 +78,7 @@ export default function App(){
                 <button onClick={()=>changeView('etfs')} className="mr-2">ETFs</button>
                 <button onClick={()=>changeView('dashboard')} className="mr-2">Stocks</button>
                 <button onClick={()=>changeView('crypto')} className="mr-2">Crypto</button>
+                <button onClick={()=>changeView('reflags')} className="mr-2">Re-Flags</button>
                 <button onClick={()=>changeView('watchlist')} className="mr-2">Watchlist</button>
                 <button onClick={()=>changeView('institutional')} className="mr-2">Institutions</button>
                 <button onClick={()=>changeView('congress')} className="mr-2">Congress</button>
@@ -103,6 +105,7 @@ export default function App(){
               {view === 'congress' && <CongressionalActivity />}
               {view === 'etfs' && <EtfDashboard />}
               {view === 'crypto' && <CryptoDashboard />}
+              {view === 'reflags' && <ReflagOpportunities />}
               {view === 'options' && <OptionsLab />}
               {view === 'about' && <About />}
               {view === 'admin' && (

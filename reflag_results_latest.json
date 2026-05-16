@@ -1,0 +1,573 @@
+{
+  "scan_started_at": "2026-05-16T16:09:20.998755+00:00",
+  "scan_finished_at": "2026-05-16T16:09:25.232361+00:00",
+  "total_scanned": 8,
+  "total_hits": 7,
+  "top_ranked": [
+    {
+      "ticker": "USDG",
+      "asset_type": "crypto",
+      "price": 5.501,
+      "price_when_flagged": 0.999671,
+      "date_flagged": "2026-05-16T16:09:20",
+      "rsi": 31.52,
+      "volume_ratio": 2.04,
+      "atr": 0.2186,
+      "atr_pct": 3.97,
+      "ma20": 5.6809,
+      "ma50": 5.8285,
+      "trend_direction": "down",
+      "scanner_category": "Heavy Volume",
+      "sector": null,
+      "fib": {
+        "swing_low": 3.0,
+        "swing_high": 5.97,
+        "levels": {
+          "38.2": 4.84,
+          "50.0": 4.49,
+          "61.8": 4.14
+        },
+        "hit_level": null,
+        "hit_price": null,
+        "in_retracement_zone": false
+      },
+      "fib_levels": {
+        "38.2": 4.84,
+        "50.0": 4.49,
+        "61.8": 4.14
+      },
+      "fib_hit_level": null,
+      "fib_hit_price": null,
+      "in_retracement_zone": false,
+      "reversal_score": 7,
+      "reversal_labels": [
+        "RSI Near Oversold",
+        "Volume Spike",
+        "Bullish Engulfing",
+        "Short Consolidation"
+      ],
+      "reversal_patterns": {
+        "hammer": false,
+        "bullish_engulfing": true,
+        "morning_star": false,
+        "piercing_line": false,
+        "three_white_soldiers": false,
+        "multiple_green_candles": false
+      },
+      "reversal_reasons": [
+        "RSI is below 35.",
+        "Volume is at least 1.5x the recent average.",
+        "Recent closes are consolidating in a tight range.",
+        "Bullish candle patterns: bullish_engulfing"
+      ],
+      "exhaustion_score": 0,
+      "exhaustion_labels": [],
+      "exhaustion_patterns": {
+        "shooting_star": false,
+        "bearish_engulfing": false,
+        "evening_star": false,
+        "multiple_red_candles": false
+      },
+      "exhaustion_reasons": [],
+      "categories": [
+        "Oversold Reversal Candidates"
+      ],
+      "alerts": [
+        {
+          "ticker": "USDG",
+          "alert_type": "bullish_reversal",
+          "severity": "high",
+          "message": "USDG bullish reversal score is 7.",
+          "created_at": "2026-05-16T16:09:22.745271+00:00",
+          "payload": {
+            "price": 5.501,
+            "rsi": 31.52,
+            "fib_hit_level": null,
+            "reversal_score": 7,
+            "exhaustion_score": 0
+          }
+        }
+      ]
+    },
+    {
+      "ticker": "LEO",
+      "asset_type": "crypto",
+      "price": 9.9243,
+      "price_when_flagged": 10.21,
+      "date_flagged": "2026-05-16T16:09:20",
+      "rsi": 38.08,
+      "volume_ratio": 2.12,
+      "atr": 0.1972,
+      "atr_pct": 1.99,
+      "ma20": 10.2288,
+      "ma50": 10.1541,
+      "trend_direction": "up",
+      "scanner_category": "Core Crypto",
+      "sector": null,
+      "fib": {
+        "swing_low": 6.46,
+        "swing_high": 10.39,
+        "levels": {
+          "38.2": 8.89,
+          "50.0": 8.42,
+          "61.8": 7.96
+        },
+        "hit_level": null,
+        "hit_price": null,
+        "in_retracement_zone": false
+      },
+      "fib_levels": {
+        "38.2": 8.89,
+        "50.0": 8.42,
+        "61.8": 7.96
+      },
+      "fib_hit_level": null,
+      "fib_hit_price": null,
+      "in_retracement_zone": false,
+      "reversal_score": 3,
+      "reversal_labels": [
+        "Volume Spike",
+        "Short Consolidation"
+      ],
+      "reversal_patterns": {
+        "hammer": false,
+        "bullish_engulfing": false,
+        "morning_star": false,
+        "piercing_line": false,
+        "three_white_soldiers": false,
+        "multiple_green_candles": false
+      },
+      "reversal_reasons": [
+        "Volume is at least 1.5x the recent average.",
+        "Recent closes are consolidating in a tight range."
+      ],
+      "exhaustion_score": 2,
+      "exhaustion_labels": [
+        "Evening Star"
+      ],
+      "exhaustion_patterns": {
+        "shooting_star": false,
+        "bearish_engulfing": false,
+        "evening_star": true,
+        "multiple_red_candles": false
+      },
+      "exhaustion_reasons": [
+        "Bearish candle patterns: evening_star"
+      ],
+      "categories": [],
+      "alerts": []
+    },
+    {
+      "ticker": "XMR",
+      "asset_type": "crypto",
+      "price": 385.0233,
+      "price_when_flagged": 382.59,
+      "date_flagged": "2026-05-16T16:09:20",
+      "rsi": 48.65,
+      "volume_ratio": 0.79,
+      "atr": 17.4816,
+      "atr_pct": 4.54,
+      "ma20": 395.4815,
+      "ma50": 365.1739,
+      "trend_direction": "up",
+      "scanner_category": "Deep ATH Discount",
+      "sector": null,
+      "fib": {
+        "swing_low": 278.01,
+        "swing_high": 436.98,
+        "levels": {
+          "38.2": 376.25,
+          "50.0": 357.49,
+          "61.8": 338.73
+        },
+        "hit_level": null,
+        "hit_price": null,
+        "in_retracement_zone": false
+      },
+      "fib_levels": {
+        "38.2": 376.25,
+        "50.0": 357.49,
+        "61.8": 338.73
+      },
+      "fib_hit_level": null,
+      "fib_hit_price": null,
+      "in_retracement_zone": false,
+      "reversal_score": 2,
+      "reversal_labels": [
+        "Hammer Detected"
+      ],
+      "reversal_patterns": {
+        "hammer": true,
+        "bullish_engulfing": false,
+        "morning_star": false,
+        "piercing_line": false,
+        "three_white_soldiers": false,
+        "multiple_green_candles": false
+      },
+      "reversal_reasons": [
+        "Bullish candle patterns: hammer"
+      ],
+      "exhaustion_score": 0,
+      "exhaustion_labels": [],
+      "exhaustion_patterns": {
+        "shooting_star": false,
+        "bearish_engulfing": false,
+        "evening_star": false,
+        "multiple_red_candles": false
+      },
+      "exhaustion_reasons": [],
+      "categories": [],
+      "alerts": []
+    },
+    {
+      "ticker": "LTC",
+      "asset_type": "crypto",
+      "price": 56.26,
+      "price_when_flagged": 57.33,
+      "date_flagged": "2026-05-16T16:09:20",
+      "rsi": 48.14,
+      "volume_ratio": 0.96,
+      "atr": 1.7794,
+      "atr_pct": 3.16,
+      "ma20": 56.7135,
+      "ma50": 55.4888,
+      "trend_direction": "up",
+      "scanner_category": "Deep ATH Discount",
+      "sector": null,
+      "fib": {
+        "swing_low": 46.08,
+        "swing_high": 60.53,
+        "levels": {
+          "38.2": 55.01,
+          "50.0": 53.3,
+          "61.8": 51.6
+        },
+        "hit_level": null,
+        "hit_price": null,
+        "in_retracement_zone": false
+      },
+      "fib_levels": {
+        "38.2": 55.01,
+        "50.0": 53.3,
+        "61.8": 51.6
+      },
+      "fib_hit_level": null,
+      "fib_hit_price": null,
+      "in_retracement_zone": false,
+      "reversal_score": 1,
+      "reversal_labels": [
+        "Short Consolidation"
+      ],
+      "reversal_patterns": {
+        "hammer": false,
+        "bullish_engulfing": false,
+        "morning_star": false,
+        "piercing_line": false,
+        "three_white_soldiers": false,
+        "multiple_green_candles": false
+      },
+      "reversal_reasons": [
+        "Recent closes are consolidating in a tight range."
+      ],
+      "exhaustion_score": 0,
+      "exhaustion_labels": [],
+      "exhaustion_patterns": {
+        "shooting_star": false,
+        "bearish_engulfing": false,
+        "evening_star": false,
+        "multiple_red_candles": false
+      },
+      "exhaustion_reasons": [],
+      "categories": [],
+      "alerts": []
+    },
+    {
+      "ticker": "ZEC",
+      "asset_type": "crypto",
+      "price": 501.4,
+      "price_when_flagged": 513.34,
+      "date_flagged": "2026-05-16T16:09:20",
+      "rsi": 55.59,
+      "volume_ratio": 0.49,
+      "atr": 42.7504,
+      "atr_pct": 8.53,
+      "ma20": 482.4858,
+      "ma50": 377.3551,
+      "trend_direction": "up",
+      "scanner_category": "Large-Cap Trend, High Volatility, Deep ATH Discount",
+      "sector": null,
+      "fib": {
+        "swing_low": 188.62,
+        "swing_high": 637.2,
+        "levels": {
+          "38.2": 465.84,
+          "50.0": 412.91,
+          "61.8": 359.98
+        },
+        "hit_level": null,
+        "hit_price": null,
+        "in_retracement_zone": false
+      },
+      "fib_levels": {
+        "38.2": 465.84,
+        "50.0": 412.91,
+        "61.8": 359.98
+      },
+      "fib_hit_level": null,
+      "fib_hit_price": null,
+      "in_retracement_zone": false,
+      "reversal_score": 0,
+      "reversal_labels": [],
+      "reversal_patterns": {
+        "hammer": false,
+        "bullish_engulfing": false,
+        "morning_star": false,
+        "piercing_line": false,
+        "three_white_soldiers": false,
+        "multiple_green_candles": false
+      },
+      "reversal_reasons": [],
+      "exhaustion_score": 1,
+      "exhaustion_labels": [
+        "Weakening Volume"
+      ],
+      "exhaustion_patterns": {
+        "shooting_star": false,
+        "bearish_engulfing": false,
+        "evening_star": false,
+        "multiple_red_candles": false
+      },
+      "exhaustion_reasons": [
+        "Recent volume is fading versus the prior window."
+      ],
+      "categories": [],
+      "alerts": []
+    },
+    {
+      "ticker": "ADA",
+      "asset_type": "crypto",
+      "price": 0.2562,
+      "price_when_flagged": 0.261136,
+      "date_flagged": "2026-05-16T16:09:20",
+      "rsi": 46.95,
+      "volume_ratio": 0.81,
+      "atr": 0.0113,
+      "atr_pct": 4.43,
+      "ma20": 0.2603,
+      "ma50": 0.2531,
+      "trend_direction": "up",
+      "scanner_category": "Deep ATH Discount",
+      "sector": null,
+      "fib": {
+        "swing_low": 0.23,
+        "swing_high": 0.31,
+        "levels": {
+          "38.2": 0.28,
+          "50.0": 0.27,
+          "61.8": 0.26
+        },
+        "hit_level": null,
+        "hit_price": null,
+        "in_retracement_zone": false
+      },
+      "fib_levels": {
+        "38.2": 0.28,
+        "50.0": 0.27,
+        "61.8": 0.26
+      },
+      "fib_hit_level": null,
+      "fib_hit_price": null,
+      "in_retracement_zone": false,
+      "reversal_score": 0,
+      "reversal_labels": [],
+      "reversal_patterns": {
+        "hammer": false,
+        "bullish_engulfing": false,
+        "morning_star": false,
+        "piercing_line": false,
+        "three_white_soldiers": false,
+        "multiple_green_candles": false
+      },
+      "reversal_reasons": [],
+      "exhaustion_score": 0,
+      "exhaustion_labels": [],
+      "exhaustion_patterns": {
+        "shooting_star": false,
+        "bearish_engulfing": false,
+        "evening_star": false,
+        "multiple_red_candles": false
+      },
+      "exhaustion_reasons": [],
+      "categories": [],
+      "alerts": []
+    },
+    {
+      "ticker": "LINK",
+      "asset_type": "crypto",
+      "price": 9.736,
+      "price_when_flagged": 10.06,
+      "date_flagged": "2026-05-16T16:09:20",
+      "rsi": 49.05,
+      "volume_ratio": 1.01,
+      "atr": 0.4253,
+      "atr_pct": 4.37,
+      "ma20": 9.7963,
+      "ma50": 9.3491,
+      "trend_direction": "up",
+      "scanner_category": "Deep ATH Discount",
+      "sector": null,
+      "fib": {
+        "swing_low": 7.32,
+        "swing_high": 10.85,
+        "levels": {
+          "38.2": 9.5,
+          "50.0": 9.09,
+          "61.8": 8.67
+        },
+        "hit_level": null,
+        "hit_price": null,
+        "in_retracement_zone": false
+      },
+      "fib_levels": {
+        "38.2": 9.5,
+        "50.0": 9.09,
+        "61.8": 8.67
+      },
+      "fib_hit_level": null,
+      "fib_hit_price": null,
+      "in_retracement_zone": false,
+      "reversal_score": 0,
+      "reversal_labels": [],
+      "reversal_patterns": {
+        "hammer": false,
+        "bullish_engulfing": false,
+        "morning_star": false,
+        "piercing_line": false,
+        "three_white_soldiers": false,
+        "multiple_green_candles": false
+      },
+      "reversal_reasons": [],
+      "exhaustion_score": 0,
+      "exhaustion_labels": [],
+      "exhaustion_patterns": {
+        "shooting_star": false,
+        "bearish_engulfing": false,
+        "evening_star": false,
+        "multiple_red_candles": false
+      },
+      "exhaustion_reasons": [],
+      "categories": [],
+      "alerts": []
+    }
+  ],
+  "sections": {
+    "Current Momentum Leaders": [],
+    "Overbought / Exhaustion Watch": [],
+    "Fibonacci Pullback Watch": [],
+    "Re-Flagged Opportunities": [],
+    "Oversold Reversal Candidates": [
+      {
+        "ticker": "USDG",
+        "asset_type": "crypto",
+        "price": 5.501,
+        "price_when_flagged": 0.999671,
+        "date_flagged": "2026-05-16T16:09:20",
+        "rsi": 31.52,
+        "volume_ratio": 2.04,
+        "atr": 0.2186,
+        "atr_pct": 3.97,
+        "ma20": 5.6809,
+        "ma50": 5.8285,
+        "trend_direction": "down",
+        "scanner_category": "Heavy Volume",
+        "sector": null,
+        "fib": {
+          "swing_low": 3.0,
+          "swing_high": 5.97,
+          "levels": {
+            "38.2": 4.84,
+            "50.0": 4.49,
+            "61.8": 4.14
+          },
+          "hit_level": null,
+          "hit_price": null,
+          "in_retracement_zone": false
+        },
+        "fib_levels": {
+          "38.2": 4.84,
+          "50.0": 4.49,
+          "61.8": 4.14
+        },
+        "fib_hit_level": null,
+        "fib_hit_price": null,
+        "in_retracement_zone": false,
+        "reversal_score": 7,
+        "reversal_labels": [
+          "RSI Near Oversold",
+          "Volume Spike",
+          "Bullish Engulfing",
+          "Short Consolidation"
+        ],
+        "reversal_patterns": {
+          "hammer": false,
+          "bullish_engulfing": true,
+          "morning_star": false,
+          "piercing_line": false,
+          "three_white_soldiers": false,
+          "multiple_green_candles": false
+        },
+        "reversal_reasons": [
+          "RSI is below 35.",
+          "Volume is at least 1.5x the recent average.",
+          "Recent closes are consolidating in a tight range.",
+          "Bullish candle patterns: bullish_engulfing"
+        ],
+        "exhaustion_score": 0,
+        "exhaustion_labels": [],
+        "exhaustion_patterns": {
+          "shooting_star": false,
+          "bearish_engulfing": false,
+          "evening_star": false,
+          "multiple_red_candles": false
+        },
+        "exhaustion_reasons": [],
+        "categories": [
+          "Oversold Reversal Candidates"
+        ],
+        "alerts": [
+          {
+            "ticker": "USDG",
+            "alert_type": "bullish_reversal",
+            "severity": "high",
+            "message": "USDG bullish reversal score is 7.",
+            "created_at": "2026-05-16T16:09:22.745271+00:00",
+            "payload": {
+              "price": 5.501,
+              "rsi": 31.52,
+              "fib_hit_level": null,
+              "reversal_score": 7,
+              "exhaustion_score": 0
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "ticker": "USDG",
+      "alert_type": "bullish_reversal",
+      "severity": "high",
+      "message": "USDG bullish reversal score is 7.",
+      "created_at": "2026-05-16T16:09:22.745271+00:00",
+      "payload": {
+        "price": 5.501,
+        "rsi": 31.52,
+        "fib_hit_level": null,
+        "reversal_score": 7,
+        "exhaustion_score": 0
+      }
+    }
+  ],
+  "summary": "."
+}

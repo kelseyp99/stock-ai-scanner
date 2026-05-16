@@ -570,6 +570,66 @@ function NarrativePanel({ row }: { row: any }) {
   )
 }
 
+function formatMoney(value: any) {
+  const n = Number(value || 0)
+  if (!Number.isFinite(n) || n === 0) return '—'
+  const sign = n > 0 ? '+' : '-'
+  const abs = Math.abs(n)
+  if (abs >= 1_000_000_000) return `${sign}$${(abs / 1_000_000_000).toFixed(1)}B`
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(1)}K`
+  return `${sign}$${abs.toFixed(0)}`
+}
+
+function InstitutionalNotesPanel({ row }: { row: any }) {
+  const delta = row.institutional_ownership_delta_pct
+  const notable: string[] = row.institutional_13f_notable ?? []
+  const managers: string[] = row.institutional_13f_top_managers ?? []
+  const newManagers: string[] = row.institutional_13f_new_managers ?? []
+  if (delta == null && notable.length === 0 && managers.length === 0 && newManagers.length === 0) return null
+
+  const sign = Number(delta || 0) > 0 ? '+' : ''
+  const deltaText = delta == null ? '—' : `${sign}${Number(delta).toFixed(1)}%`
+  const trendClass = Number(delta || 0) >= 2
+    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+    : Number(delta || 0) <= -2
+      ? 'text-red-700 bg-red-50 border-red-200'
+      : 'text-slate-700 bg-slate-50 border-slate-200'
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">🏦 13F Institutional Notes</p>
+        <span className={`rounded border px-2 py-0.5 text-xs font-black ${trendClass}`}>
+          {deltaText} {row.institutional_ownership_trend || '13F'}
+        </span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+        <div className="rounded bg-slate-50 px-2 py-2">
+          <div className="font-bold uppercase text-slate-400">Value Δ</div>
+          <div className="font-black text-slate-700">{formatMoney(row.institutional_13f_value_delta)}</div>
+        </div>
+        <div className="rounded bg-slate-50 px-2 py-2">
+          <div className="font-bold uppercase text-slate-400">Managers</div>
+          <div className="font-black text-slate-700">{row.institutional_13f_manager_count ?? '—'}</div>
+        </div>
+        <div className="rounded bg-slate-50 px-2 py-2">
+          <div className="font-bold uppercase text-slate-400">Period</div>
+          <div className="font-black text-slate-700">{row.institutional_13f_latest_period || 'latest'}</div>
+        </div>
+      </div>
+      {notable.length > 0 && (
+        <div className="space-y-1 text-xs text-slate-700">
+          {notable.slice(0, 3).map(note => <div key={note}>{note}</div>)}
+        </div>
+      )}
+      {newManagers.length > 0 && <div className="text-xs text-slate-600"><span className="font-bold">New holders:</span> {newManagers.slice(0, 5).join(', ')}</div>}
+      {managers.length > 0 && <div className="text-xs text-slate-600"><span className="font-bold">Top managers:</span> {managers.slice(0, 5).join(', ')}</div>}
+      <p className="text-[11px] leading-relaxed text-slate-400">13F data can lag up to 45 days, so this is conviction context rather than a live trade signal.</p>
+    </div>
+  )
+}
+
 function EducationalPanel({ row }: { row: any }) {
   const { rsi, atr_pct, volume_ratio, setup_quality, squeeze } = row
   const insights: { label: string; text: string }[] = []
@@ -785,7 +845,7 @@ function StockCard({ row }: { row: any }) {
             {tab === 'news'     && <NewsPanel row={row} />}
             {tab === 'zones'    && <ActionZonesPanel row={row} />}
             {tab === 'options'  && <OptionsInterpretationCard row={row} />}
-            {tab === 'analysis' && <><NarrativePanel row={row} /><EducationalPanel row={row} /></>}
+            {tab === 'analysis' && <><NarrativePanel row={row} /><InstitutionalNotesPanel row={row} /><EducationalPanel row={row} /></>}
           </div>
         </div>
       )}

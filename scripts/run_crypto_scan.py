@@ -123,7 +123,7 @@ def categorize(row: dict[str, Any]) -> list[str]:
     return cats
 
 
-def score_crypto(row: dict[str, Any]) -> float:
+def score_crypto(row: dict[str, Any]) -> int:
     rank = row.get("market_cap_rank") or 999
     change_1h = row.get("price_change_percentage_1h") or 0
     change_24h = row.get("price_change_percentage_24h") or 0
@@ -133,14 +133,58 @@ def score_crypto(row: dict[str, Any]) -> float:
     ath_drawdown = row.get("ath_change_percentage") or -100
     volatility = row.get("sparkline_volatility_7d") or 0
 
-    rank_score = max(0, 35 - (rank * 0.7))
-    momentum_score = max(-15, min(25, change_7d * 0.8)) + max(-10, min(15, change_30d * 0.25))
-    flow_score = min(15, volume_ratio * 120)
-    recovery_score = max(0, min(10, (ath_drawdown + 80) / 8))
-    short_term_penalty = min(12, abs(change_1h) * 1.5) if abs(change_1h) > 5 else 0
-    volatility_penalty = min(12, volatility / 4) if volatility > 35 else 0
-    crash_penalty = 10 if change_24h < -8 else 0
-    return round(max(0, min(100, 45 + rank_score + momentum_score + flow_score + recovery_score - short_term_penalty - volatility_penalty - crash_penalty)), 1)
+    score = 0
+    if rank <= 3:
+        score += 3
+    elif rank <= 10:
+        score += 2
+    elif rank <= 30:
+        score += 1
+
+    if change_7d >= 15:
+        score += 4
+    elif change_7d >= 8:
+        score += 3
+    elif change_7d >= 3:
+        score += 1
+    elif change_7d <= -12:
+        score -= 2
+
+    if change_30d >= 30:
+        score += 3
+    elif change_30d >= 15:
+        score += 2
+    elif change_30d >= 5:
+        score += 1
+    elif change_30d <= -25:
+        score -= 2
+
+    if volume_ratio >= 0.10:
+        score += 3
+    elif volume_ratio >= 0.04:
+        score += 2
+    elif volume_ratio >= 0.015:
+        score += 1
+
+    if ath_drawdown >= -20:
+        score += 2
+    elif ath_drawdown >= -45:
+        score += 1
+    elif ath_drawdown <= -70 and change_7d <= 0:
+        score -= 1
+
+    if abs(change_1h) > 8:
+        score -= 2
+    elif abs(change_1h) > 5:
+        score -= 1
+    if change_24h < -8:
+        score -= 2
+    if volatility > 60:
+        score -= 2
+    elif volatility > 40:
+        score -= 1
+
+    return max(0, min(15, int(round(score))))
 
 
 def strategy_for(row: dict[str, Any]) -> dict[str, str]:

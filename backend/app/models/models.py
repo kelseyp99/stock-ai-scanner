@@ -36,6 +36,47 @@ class ScanResult(Base):
     scan_run = relationship('ScanRun')
 
 
+class ScannerCandidateHistory(Base):
+    __tablename__ = 'scanner_candidate_history'
+    id = Column(Integer, primary_key=True, index=True)
+    ticker = Column(String(32), index=True, nullable=False)
+    date_flagged = Column(DateTime, server_default=func.now(), index=True)
+    price_when_flagged = Column(Float, nullable=True)
+    rsi = Column(Float, nullable=True)
+    volume_ratio = Column(Float, nullable=True)
+    atr = Column(Float, nullable=True)
+    trend_score = Column(Float, nullable=True)
+    scanner_category = Column(String(256), nullable=True)
+    sector = Column(String(128), nullable=True)
+    asset_type = Column(String(32), nullable=True)
+    source = Column(String(64), nullable=True)
+
+
+class FibRetracementLevel(Base):
+    __tablename__ = 'fib_retracement_levels'
+    id = Column(Integer, primary_key=True, index=True)
+    ticker = Column(String(32), index=True, nullable=False)
+    calculated_at = Column(DateTime, server_default=func.now(), index=True)
+    swing_low = Column(Float, nullable=True)
+    swing_high = Column(Float, nullable=True)
+    fib_382 = Column(Float, nullable=True)
+    fib_500 = Column(Float, nullable=True)
+    fib_618 = Column(Float, nullable=True)
+    hit_level = Column(String(16), nullable=True)
+    asset_type = Column(String(32), nullable=True)
+
+
+class TechnicalAlert(Base):
+    __tablename__ = 'technical_alerts'
+    id = Column(Integer, primary_key=True, index=True)
+    ticker = Column(String(32), index=True, nullable=False)
+    alert_type = Column(String(64), index=True, nullable=False)
+    severity = Column(String(32), nullable=True)
+    message = Column(Text, nullable=True)
+    payload = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), index=True)
+
+
 class UserWatchlist(Base):
     __tablename__ = 'user_watchlists'
     id = Column(Integer, primary_key=True, index=True)

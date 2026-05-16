@@ -324,6 +324,21 @@ stock/ETF-only run, pass `--skip-crypto`.
 The scanner works without a key against CoinGecko's public endpoint, but it also
 uses `COINGECKO_API_KEY` or `CG_API_KEY` from the environment when present.
 
+### Re-flagged opportunities scanner
+
+The re-flag scanner revisits previously notable candidates and looks for
+rule-based Fibonacci pullbacks, oversold reversals, and bearish exhaustion
+setups. It writes `reflag_results_latest.json`, which is included in the static
+Firebase payload when present.
+
+```bash
+.venv/bin/python scripts/run_reflag_scan.py --seed-history --limit 250
+```
+
+The normal local nightly wrapper runs this after stocks, ETFs, and crypto. Use
+`--skip-reflags` for a faster one-off deploy. Use `--persist-reflags` if you
+want Fib levels and technical alerts saved to MySQL.
+
 ### Options
 | Flag | Default | Description |
 |---|---|---|
@@ -391,6 +406,7 @@ Firebase web config values are public client config, not server secrets. Keep se
 | `POST` | `/scan/ingest` | Accepts scan payload from remote worker (bearer token auth) |
 | `GET` | `/scan/etfs/latest` | Returns latest ETF scan results |
 | `GET` | `/scan/crypto/latest` | Returns latest large-cap crypto scan results |
+| `GET` | `/scan/reflags/latest` | Returns latest re-flagged opportunities scan |
 | `GET` | `/news/{ticker}` | Fetches recent news headlines for a ticker |
 | `GET` | `/scheduler/settings` | Returns current scheduler configuration |
 | `POST` | `/scheduler/settings` | Save scheduler settings + register cron job |

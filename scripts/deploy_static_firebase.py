@@ -23,6 +23,7 @@ FRONTEND = ROOT / "frontend"
 RESULTS_JSON = ROOT / "scan_results_latest.json"
 ETF_RESULTS_JSON = ROOT / "etf_results_latest.json"
 CRYPTO_RESULTS_JSON = ROOT / "crypto_results_latest.json"
+REFLAG_RESULTS_JSON = ROOT / "reflag_results_latest.json"
 DEMO_DATA_TS = FRONTEND / "src" / "data" / "demoScanResults.ts"
 DEFAULT_FIREBASE_PROJECT = "thetaforge-35430"
 
@@ -134,6 +135,12 @@ def build_static_payload(scan: dict[str, Any]) -> dict[str, Any]:
             crypto_scan = json.loads(CRYPTO_RESULTS_JSON.read_text())
         except Exception:
             crypto_scan = {}
+    reflag_scan = {}
+    if REFLAG_RESULTS_JSON.exists():
+        try:
+            reflag_scan = json.loads(REFLAG_RESULTS_JSON.read_text())
+        except Exception:
+            reflag_scan = {}
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "scan_started_at": scan.get("scan_started_at"),
@@ -147,6 +154,7 @@ def build_static_payload(scan: dict[str, Any]) -> dict[str, Any]:
         "government_activity": scan.get("government_activity") or build_government_activity(scan),
         "etf_recommendations": etf_scan,
         "crypto_analysis": crypto_scan,
+        "reflag_analysis": reflag_scan,
     }
     return payload
 

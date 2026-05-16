@@ -24,6 +24,7 @@ from ..models import models
 from ..services.ai_provider_service import generate_market_summary
 from ..services.index_universe_service import get_universe_tickers
 from ..services.news_service import get_news_for_tickers
+from ..services.reflag_scanner import save_candidates_to_history
 from ..services.scanner import scan_ticker
 
 logger = logging.getLogger(__name__)
@@ -225,7 +226,8 @@ def _persist_scheduled_payload(db: Session, payload: dict) -> models.ScanRun:
     db.commit()
     db.refresh(scan_run)
 
-    for r in payload.get('global_top') or payload.get('top_ranked') or []:
+    results = payload.get('global_top') or payload.get('top_ranked') or []
+    for r in results:
         sr = models.ScanResult(scan_run_id=scan_run.id, **{
             'ticker': r.get('ticker'),
             'price': r.get('price'),
@@ -239,6 +241,7 @@ def _persist_scheduled_payload(db: Session, payload: dict) -> models.ScanRun:
             'reasons': '; '.join(r.get('categories', []) or []),
         })
         db.add(sr)
+    save_candidates_to_history(db, results, source='scheduled-scan')
     db.commit()
     return scan_run
 

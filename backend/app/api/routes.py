@@ -147,6 +147,7 @@ def scan_grouped(sample: int = 50, db: Session = Depends(get_db)):
 _RESULTS_JSON = pathlib.Path(__file__).parents[3] / 'scan_results_latest.json'
 _ETF_RESULTS_JSON = pathlib.Path(__file__).parents[3] / 'etf_results_latest.json'
 _CRYPTO_RESULTS_JSON = pathlib.Path(__file__).parents[3] / 'crypto_results_latest.json'
+_REFLAG_RESULTS_JSON = pathlib.Path(__file__).parents[3] / 'reflag_results_latest.json'
 _PROJECT_ROOT = pathlib.Path(__file__).parents[3]
 _STATIC_DEPLOY_LOG = _PROJECT_ROOT / 'static_deploy_latest.log'
 
@@ -221,6 +222,20 @@ def scan_crypto_latest():
     data.setdefault('top_ranked', [])
     data.setdefault('summary', '')
     data.setdefault('total_scanned', data.get('total_hits', 0))
+    return JSONResponse(content=data)
+
+
+@router.get('/scan/reflags/latest')
+def scan_reflags_latest():
+    """Serve the most recent re-flagged opportunities scan."""
+    if not _REFLAG_RESULTS_JSON.exists():
+        raise HTTPException(status_code=404, detail='No re-flag scan results yet. Run scripts/run_reflag_scan.py first.')
+    with open(_REFLAG_RESULTS_JSON) as f:
+        data = json.load(f)
+    data.setdefault('top_ranked', [])
+    data.setdefault('sections', {})
+    data.setdefault('alerts', [])
+    data.setdefault('summary', '')
     return JSONResponse(content=data)
 
 
