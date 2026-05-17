@@ -48,7 +48,7 @@ def _safe_int(value: Any) -> int:
 
 def _load_trade_map() -> dict[str, Any]:
     global _file_cache
-    path = settings.government_trades_file
+    path = settings.government_trades_file or "data/government_trades.json"
     if not path:
         return {}
 

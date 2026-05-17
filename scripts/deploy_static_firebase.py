@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,6 +27,7 @@ CRYPTO_RESULTS_JSON = ROOT / "crypto_results_latest.json"
 REFLAG_RESULTS_JSON = ROOT / "reflag_results_latest.json"
 DEMO_DATA_TS = FRONTEND / "src" / "data" / "demoScanResults.ts"
 DEFAULT_FIREBASE_PROJECT = "thetaforge-35430"
+DEFAULT_GOVERNMENT_TRADES_JSON = ROOT / "data" / "government_trades.json"
 
 CATEGORY_ORDER = [
     "Momentum",
@@ -106,11 +108,119 @@ def build_institutional_activity(scan: dict[str, Any]) -> list[dict[str, Any]]:
     return rows[:40]
 
 
+def load_json_file(path: Path) -> dict[str, Any]:
+    try:
+        if not path.exists():
+            return {}
+        data = json.loads(path.read_text())
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def load_government_trade_map() -> dict[str, Any]:
+    configured = os.environ.get("GOVERNMENT_TRADES_FILE", "").strip()
+    path = Path(configured).expanduser() if configured else DEFAULT_GOVERNMENT_TRADES_JSON
+    if not path.is_absolute():
+        path = ROOT / path
+    return load_json_file(path)
+
+
+def normalize_government_trade_row(ticker: str, value: Any) -> dict[str, Any] | None:
+    if not ticker:
+        return None
+    if isinstance(value, dict):
+        row = dict(value)
+        trades = row.get("trades") or row.get("gov_trade_recent_trades") or []
+    elif isinstance(value, list):
+        row = {}
+        trades = value
+    else:
+        return None
+
+    buys = int(row.get("gov_trade_buy_count_90d") or 0)
+    sells = int(row.get("gov_trade_sell_count_90d") or 0)
+    net_amount = float(row.get("gov_trade_net_amount_90d") or 0)
+    members = list(row.get("gov_trade_members") or [])
+    latest_trade_date = row.get("gov_trade_latest_trade_date")
+    latest_disclosure_date = row.get("gov_trade_latest_disclosure_date")
+    recent_trades: list[dict[str, Any]] = []
+
+    for trade in trades:
+        if not isinstance(trade, dict):
+            continue
+        trade_type = str(trade.get("transaction_type") or trade.get("type") or "")
+        amount = float(trade.get("amount_midpoint") or trade.get("amount") or trade.get("estimated_amount") or 0)
+        member = trade.get("member") or trade.get("representative") or trade.get("senator") or ""
+        if member and member not in members:
+            members.append(member)
+        normalized_type = (
+            "Purchase" if "purchase" in trade_type.lower() or "buy" in trade_type.lower() else
+            "Sale" if "sale" in trade_type.lower() or "sell" in trade_type.lower() else
+            trade_type
+        )
+        if normalized_type == "Purchase":
+            buys += 1 if not row.get("gov_trade_buy_count_90d") else 0
+            net_amount += amount if not row.get("gov_trade_net_amount_90d") else 0
+        elif normalized_type == "Sale":
+            sells += 1 if not row.get("gov_trade_sell_count_90d") else 0
+            net_amount -= amount if not row.get("gov_trade_net_amount_90d") else 0
+        latest_trade_date = latest_trade_date or trade.get("trade_date") or trade.get("transaction_date")
+        latest_disclosure_date = latest_disclosure_date or trade.get("disclosure_date")
+        recent_trades.append({
+            "member": member,
+            "chamber": trade.get("chamber") or "",
+            "transaction_type": normalized_type,
+            "amount_midpoint": amount,
+            "trade_date": trade.get("trade_date") or trade.get("transaction_date"),
+            "disclosure_date": trade.get("disclosure_date"),
+            "asset": trade.get("asset") or trade.get("asset_description") or trade.get("description") or "",
+            "source_url": trade.get("source_url") or trade.get("url") or "",
+        })
+
+    signal = row.get("gov_trade_signal")
+    if not signal:
+        if buys >= 3 and len(members) >= 2 and net_amount >= 100_000:
+            signal = "Government Cluster Buy"
+        elif buys > sells and net_amount >= 25_000:
+            signal = "Government Buying"
+        elif sells > buys and net_amount <= -25_000:
+            signal = "Government Selling"
+
+    return {
+        "ticker": ticker.upper(),
+        "gov_trade_buy_count_90d": buys,
+        "gov_trade_sell_count_90d": sells,
+        "gov_trade_net_amount_90d": round(net_amount, 2),
+        "gov_trade_latest_trade_date": latest_trade_date,
+        "gov_trade_latest_disclosure_date": latest_disclosure_date,
+        "gov_trade_members": members[:6],
+        "gov_trade_recent_trades": recent_trades[:12],
+        "gov_trade_signal": signal,
+        "gov_trade_source": row.get("gov_trade_source") or row.get("source") or "government_trades_file",
+    }
+
+
 def build_government_activity(scan: dict[str, Any]) -> list[dict[str, Any]]:
-    rows = [
-        row for row in collect_category_source(scan)
-        if (row.get("gov_trade_buy_count_90d") or row.get("gov_trade_sell_count_90d") or row.get("gov_trade_recent_trades"))
-    ]
+    scan_rows_by_ticker = {
+        str(row.get("ticker") or "").upper(): row
+        for row in collect_category_source(scan)
+        if row.get("ticker")
+    }
+    rows = []
+    trade_map = load_government_trade_map()
+    for ticker, value in trade_map.items():
+        trade_row = normalize_government_trade_row(str(ticker), value)
+        if not trade_row:
+            continue
+        base = scan_rows_by_ticker.get(trade_row["ticker"], {})
+        rows.append({**base, **trade_row})
+
+    if not rows:
+        rows = [
+            row for row in scan_rows_by_ticker.values()
+            if (row.get("gov_trade_buy_count_90d") or row.get("gov_trade_sell_count_90d") or row.get("gov_trade_recent_trades"))
+        ]
     rows.sort(
         key=lambda row: (
             -abs(row.get("gov_trade_net_amount_90d") or 0),

@@ -1,5 +1,7 @@
 import React from 'react'
 import api from '../services/api'
+import FavoriteStar from '../components/FavoriteStar'
+import RunDate from '../components/RunDate'
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true'
 
@@ -22,6 +24,7 @@ function tradeClass(type: string) {
 
 export default function CongressionalActivity() {
   const [rows, setRows] = React.useState<any[]>([])
+  const [runDate, setRunDate] = React.useState('')
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -33,9 +36,11 @@ export default function CongressionalActivity() {
         if (DEMO_MODE) {
           const mod = await import('../data/demoScanResults')
           setRows(mod.default.government_activity ?? [])
+          setRunDate(mod.default.scan_finished_at || mod.default.generated_at || '')
         } else {
           const res = await api.get('/scan/latest')
           setRows(res.data.government_activity ?? [])
+          setRunDate(res.data.scan_finished_at || res.data.generated_at || '')
         }
       } catch (e: any) {
         setError(e?.message || 'Failed to load congressional activity')
@@ -48,11 +53,14 @@ export default function CongressionalActivity() {
 
   return (
     <div className="p-4 space-y-4">
-      <div>
-        <h2 className="text-xl font-bold text-slate-800">Congressional Trading Activity</h2>
-        <p className="text-sm text-slate-500 mt-1">
-          STOCK Act disclosure context from configured public disclosure extracts. Disclosures are delayed and should be treated as supporting context.
-        </p>
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-slate-800">Congressional Trading Activity</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            STOCK Act disclosure context from configured public disclosure extracts. Disclosures are delayed and should be treated as supporting context.
+          </p>
+        </div>
+        <RunDate value={runDate} />
       </div>
 
       {loading && <div className="text-sm text-slate-500">Loading congressional activity...</div>}
@@ -81,9 +89,12 @@ export default function CongressionalActivity() {
                     Latest disclosure {row.gov_trade_latest_disclosure_date || 'unknown'}
                   </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <div className="text-lg font-black text-slate-800">{money(row.gov_trade_net_amount_90d)}</div>
-                  <div className="text-[10px] font-bold uppercase text-slate-400">Net 90d</div>
+                <div className="flex shrink-0 flex-col items-end gap-1.5 text-right">
+                  <FavoriteStar row={row} snapshot={{ asset_type: row.asset_type || 'stock' }} />
+                  <div>
+                    <div className="text-lg font-black text-slate-800">{money(row.gov_trade_net_amount_90d)}</div>
+                    <div className="text-[10px] font-bold uppercase text-slate-400">Net 90d</div>
+                  </div>
                 </div>
               </div>
 

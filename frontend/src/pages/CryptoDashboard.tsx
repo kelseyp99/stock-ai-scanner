@@ -1,5 +1,7 @@
 import React from 'react'
 import api from '../services/api'
+import FavoriteStar from '../components/FavoriteStar'
+import RunDate from '../components/RunDate'
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true'
 
@@ -323,7 +325,12 @@ function CryptoCard({ row }: { row: any }) {
             </div>
             <div className="text-sm font-semibold text-slate-600 truncate">{row.name}</div>
           </div>
-          <div className="text-right shrink-0">
+          <div className="flex shrink-0 flex-col items-end gap-1.5 text-right">
+            <FavoriteStar
+              row={row}
+              ticker={String(row.symbol || '').toUpperCase()}
+              snapshot={{ asset_type: 'crypto', company_name: row.name }}
+            />
             <ScoreBadge score={Number(row.score || 0)} percentileLabel={row.percentile_label} />
           </div>
         </div>
@@ -393,12 +400,12 @@ export default function CryptoDashboard() {
           const crypto = mod.default.crypto_analysis ?? {}
           setRows(crypto.top_ranked ?? [])
           setSummary(crypto.summary ?? '')
-          setRunDate(crypto.scan_finished_at ?? '')
+          setRunDate(crypto.scan_finished_at || mod.default.scan_finished_at || mod.default.generated_at || '')
         } else {
           const res = await api.get('/scan/crypto/latest')
           setRows(res.data.top_ranked ?? [])
           setSummary(res.data.summary ?? '')
-          setRunDate(res.data.scan_finished_at ?? '')
+          setRunDate(res.data.scan_finished_at || res.data.generated_at || '')
         }
       } catch (e: any) {
         setError(e?.message || 'Failed to load crypto analysis')
@@ -416,7 +423,7 @@ export default function CryptoDashboard() {
           <h2 className="text-xl font-bold text-slate-800">Large-Cap Crypto Analysis</h2>
           <p className="text-sm text-slate-500">Nightly snapshot of liquid crypto assets by market cap, momentum, volume, volatility, and ATH distance.</p>
         </div>
-        {runDate && <div className="text-xs text-slate-400">Run {new Date(runDate).toLocaleString()}</div>}
+        <RunDate value={runDate} />
       </div>
 
       {summary && <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{summary}</div>}

@@ -1,5 +1,7 @@
 import React from 'react'
 import api from '../services/api'
+import FavoriteStar from '../components/FavoriteStar'
+import RunDate from '../components/RunDate'
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true'
 
@@ -356,7 +358,8 @@ function EtfCard({ row }: { row: any }) {
             </div>
             <div className="text-sm font-semibold text-slate-600 truncate">{row.etf_name || row.company_name}</div>
           </div>
-          <div className="text-right shrink-0">
+          <div className="flex shrink-0 flex-col items-end gap-1.5 text-right">
+            <FavoriteStar row={row} snapshot={{ asset_type: 'etf' }} />
             <ScoreBadge
               score={Number(row.score || 0)}
               bullish={row.bullish_score}
@@ -423,12 +426,12 @@ export default function EtfDashboard() {
           const etfs = mod.default.etf_recommendations ?? {}
           setRows(etfs.top_ranked ?? [])
           setSummary(etfs.summary ?? '')
-          setRunDate(etfs.scan_finished_at ?? '')
+          setRunDate(etfs.scan_finished_at || mod.default.scan_finished_at || mod.default.generated_at || '')
         } else {
           const res = await api.get('/scan/etfs/latest')
           setRows(res.data.top_ranked ?? [])
           setSummary(res.data.summary ?? '')
-          setRunDate(res.data.scan_finished_at ?? '')
+          setRunDate(res.data.scan_finished_at || res.data.generated_at || '')
         }
       } catch (e: any) {
         setError(e?.message || 'Failed to load ETF scan')
@@ -446,7 +449,7 @@ export default function EtfDashboard() {
           <h2 className="text-xl font-bold text-slate-800">ETF Recommendations</h2>
           <p className="text-sm text-slate-500">Nightly ETF scan with ETF-aware options strategy notes.</p>
         </div>
-        {runDate && <div className="text-xs text-slate-400">Run {new Date(runDate).toLocaleString()}</div>}
+        <RunDate value={runDate} />
       </div>
 
       {summary && <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">{summary}</div>}

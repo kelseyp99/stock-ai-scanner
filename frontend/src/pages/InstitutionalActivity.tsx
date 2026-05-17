@@ -1,5 +1,7 @@
 import React from 'react'
 import api from '../services/api'
+import FavoriteStar from '../components/FavoriteStar'
+import RunDate from '../components/RunDate'
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true'
 
@@ -30,6 +32,7 @@ function trendClass(delta: any) {
 
 export default function InstitutionalActivity() {
   const [rows, setRows] = React.useState<any[]>([])
+  const [runDate, setRunDate] = React.useState('')
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -55,9 +58,11 @@ export default function InstitutionalActivity() {
         if (DEMO_MODE) {
           const mod = await import('../data/demoScanResults')
           setRows(mod.default.institutional_activity ?? [])
+          setRunDate(mod.default.scan_finished_at || mod.default.generated_at || '')
         } else {
           const res = await api.get('/scan/latest')
           setRows(res.data.institutional_activity ?? [])
+          setRunDate(res.data.scan_finished_at || res.data.generated_at || '')
         }
       } catch (e: any) {
         setError(e?.message || 'Failed to load 13F activity')
@@ -70,11 +75,14 @@ export default function InstitutionalActivity() {
 
   return (
     <div className="p-4 space-y-4">
-      <div>
-        <h2 className="text-xl font-bold text-slate-800">13F Institutional Activity</h2>
-        <p className="text-sm text-slate-500 mt-1">
-          Delayed 13F context from institutional filings. Use this as confirmation, not as a required buy/sell signal.
-        </p>
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-slate-800">13F Institutional Activity</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Delayed 13F context from institutional filings. Use this as confirmation, not as a required buy/sell signal.
+          </p>
+        </div>
+        <RunDate value={runDate} />
       </div>
 
       {loading && <div className="text-sm text-slate-500">Loading 13F activity...</div>}
@@ -164,9 +172,12 @@ export default function InstitutionalActivity() {
                     {row.institutional_13f_previous_period ? ` vs ${row.institutional_13f_previous_period}` : ''}
                   </div>
                 </div>
-                <div className={`shrink-0 border rounded-md px-2 py-1 text-right ${trendClass(delta)}`}>
-                  <div className="text-lg font-black tabular-nums">{formatPct(delta)}</div>
-                  <div className="text-[10px] font-bold uppercase">{row.institutional_ownership_trend || '13F'}</div>
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <FavoriteStar row={row} snapshot={{ asset_type: row.asset_type || 'stock' }} />
+                  <div className={`border rounded-md px-2 py-1 text-right ${trendClass(delta)}`}>
+                    <div className="text-lg font-black tabular-nums">{formatPct(delta)}</div>
+                    <div className="text-[10px] font-bold uppercase">{row.institutional_ownership_trend || '13F'}</div>
+                  </div>
                 </div>
               </div>
 

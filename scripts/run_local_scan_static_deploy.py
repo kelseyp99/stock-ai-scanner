@@ -22,6 +22,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS_JSON = ROOT / "scan_results_latest.json"
+GOVERNMENT_TRADES_JSON = ROOT / "data" / "government_trades.json"
+DEFAULT_GOVERNMENT_TRADES_INPUT = ROOT / "data" / "government_trades_input.csv"
 
 
 def run(cmd: list[str], cwd: Path) -> None:
@@ -52,12 +54,28 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-reflags", action="store_true", help="Skip the re-flagged opportunities scanner.")
     parser.add_argument("--reflag-limit", type=int, default=250)
     parser.add_argument("--persist-reflags", action="store_true", help="Persist re-flag Fib/alert rows to MySQL.")
+    parser.add_argument("--government-trades-input", action="append", default=[], help="CSV/JSON STOCK Act disclosure rows to normalize before scanning. Can be repeated.")
+    parser.add_argument("--skip-government-trades-ingest", action="store_true", help="Skip normalizing configured government trade input files.")
     parser.add_argument("--project", default="thetaforge-35430", help="Firebase project id.")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+
+    government_inputs = [Path(p).expanduser() for p in args.government_trades_input]
+    if not government_inputs and DEFAULT_GOVERNMENT_TRADES_INPUT.exists():
+        government_inputs = [DEFAULT_GOVERNMENT_TRADES_INPUT]
+    if government_inputs and not args.skip_government_trades_ingest:
+        gov_cmd = [
+            sys.executable,
+            "scripts/ingest_government_trades.py",
+            "--output",
+            str(GOVERNMENT_TRADES_JSON),
+        ]
+        for path in government_inputs:
+            gov_cmd.extend(["--input", str(path)])
+        run(gov_cmd, cwd=ROOT)
 
     scan_cmd = [
         sys.executable,

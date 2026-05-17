@@ -1,5 +1,6 @@
 import React from 'react'
 import api from '../services/api'
+import RunDate from '../components/RunDate'
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true'
 
@@ -186,7 +187,7 @@ export default function ReflagOpportunities() {
           <h2 className="text-xl font-bold text-slate-800">Re-Flagged Opportunities</h2>
           <p className="text-sm text-slate-500">Rule-based daily re-check of historical scanner candidates for Fib pullbacks, reversals, and exhaustion.</p>
         </div>
-        {payload.scan_finished_at && <div className="text-xs text-slate-400">Run {new Date(payload.scan_finished_at).toLocaleString()}</div>}
+        <RunDate value={payload.scan_finished_at || payload.generated_at} />
       </div>
 
       {payload.summary && <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">{payload.summary}</div>}

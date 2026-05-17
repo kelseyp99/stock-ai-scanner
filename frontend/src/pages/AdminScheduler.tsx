@@ -2,6 +2,8 @@ import React from 'react'
 import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { getFirebaseApp } from '../firebase/firebaseApp'
 import { isFirebaseConfigured } from '../firebase/firebaseConfig'
+import { useAuth } from '../context/AuthContext'
+import { isAdminEmail } from '../auth/admins'
 
 const AVAILABLE_INDEXES = ['SP500','NASDAQ100','RUSSELL2000','CUSTOM1']
 
@@ -13,6 +15,7 @@ const INDEX_TO_UNIVERSE: Record<string,string> = {
 const APPROX_COUNTS: Record<string,number> = { SP500: 500, NASDAQ100: 100, RUSSELL2000: 2000, CUSTOM1: 50 }
 
 export default function AdminScheduler(){
+  const { user } = useAuth()
   const db = React.useMemo(() => {
     const app = getFirebaseApp()
     return app ? getFirestore(app) : null
@@ -22,23 +25,24 @@ export default function AdminScheduler(){
   const [tz, setTz] = React.useState('America/New_York')
   const [weekdaysOnly, setWeekdaysOnly] = React.useState(true)
   const [schedules, setSchedules] = React.useState<any[]>([])
+  const isAdmin = isAdminEmail(user?.email)
 
   React.useEffect(()=>{
-    if (!db) return undefined
+    if (!db || !isAdmin) return undefined
     const q = query(collection(db, 'scan_schedules'), orderBy('updatedAt','desc'))
     return onSnapshot(q, snap => {
       const out: any[] = []
       snap.forEach(d => out.push({ id: d.id, ...d.data() }))
       setSchedules(out)
     })
-  },[db])
+  },[db, isAdmin])
 
   const toggleIndex = (idx: string)=>{
     setSelected(prev => prev.includes(idx) ? prev.filter(x=>x!==idx) : [...prev, idx])
   }
 
   const save = async ()=>{
-    if (!db || selected.length === 0) return
+    if (!db || !isAdmin || selected.length === 0) return
     const universeIds = selected.map(idx => INDEX_TO_UNIVERSE[idx])
     const approxTotal = selected.reduce((sum, idx) => sum + (APPROX_COUNTS[idx] ?? 0), 0)
     await addDoc(collection(db, 'scan_schedules'), {
@@ -49,7 +53,7 @@ export default function AdminScheduler(){
       timezone: tz,
       weekdays_only: weekdaysOnly,
       enabled: true,
-      createdBy: 'admin',
+      createdBy: user?.email || 'admin',
       updatedAt: serverTimestamp()
     })
     setSelected([])
@@ -57,12 +61,12 @@ export default function AdminScheduler(){
   }
 
   const toggleEnabled = async (id: string, enabled: boolean)=>{
-    if (!db) return
+    if (!db || !isAdmin) return
     await updateDoc(doc(db,'scan_schedules',id), { enabled: !enabled, updatedAt: serverTimestamp() })
   }
 
   const remove = async (id: string)=>{
-    if (!db) return
+    if (!db || !isAdmin) return
     await deleteDoc(doc(db,'scan_schedules',id))
   }
 
@@ -72,6 +76,17 @@ export default function AdminScheduler(){
         <h2 className="text-lg font-semibold mb-4">Admin Scheduler</h2>
         <div className="bg-white p-4 rounded shadow text-sm text-gray-600">
           Firebase is not configured yet. Add the `VITE_FIREBASE_*` values to the frontend environment and enable Google sign-in in Firebase.
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="p-6">
+        <h2 className="text-lg font-semibold mb-4">Admin Scheduler</h2>
+        <div className="bg-white p-4 rounded shadow text-sm text-gray-600">
+          Sign in with an admin account to manage scan schedules.
         </div>
       </div>
     )

@@ -17,6 +17,7 @@ from ..services.ticker_service import seed_default_tickers, get_tickers
 from ..services.index_universe_service import UNIVERSES, get_universe_tickers
 from ..services.news_service import get_news_for_ticker, get_news_for_tickers
 from ..services import ai_provider_service
+from ..core.config import settings
 from . import scheduler as scheduler_router
 
 router = APIRouter()
@@ -93,19 +94,32 @@ def _build_institutional_activity(data: dict) -> list:
 
 def _build_government_activity(data: dict) -> list:
     rows = []
-    rows.extend(data.get('global_top') or data.get('top_ranked') or [])
+    source_rows = []
+    source_rows.extend(data.get('global_top') or data.get('top_ranked') or [])
     for universe in (data.get('by_universe') or {}).values():
         if isinstance(universe, dict):
-            rows.extend(universe.get('top') or universe.get('results') or [])
+            source_rows.extend(universe.get('top') or universe.get('results') or [])
     seen = set()
-    out = []
-    for row in rows:
-        ticker = row.get('ticker')
+    scan_rows_by_ticker = {}
+    for row in source_rows:
+        ticker = str(row.get('ticker') or '').upper()
         if not ticker or ticker in seen:
             continue
         seen.add(ticker)
-        if row.get('gov_trade_buy_count_90d') or row.get('gov_trade_sell_count_90d') or row.get('gov_trade_recent_trades'):
-            out.append(row)
+        scan_rows_by_ticker[ticker] = row
+
+    trade_map = _load_government_trade_map()
+    out = []
+    for ticker, value in trade_map.items():
+        trade_row = _normalize_government_trade_row(str(ticker), value)
+        if trade_row:
+            out.append({**scan_rows_by_ticker.get(trade_row['ticker'], {}), **trade_row})
+
+    if not out:
+        out = [
+            row for row in scan_rows_by_ticker.values()
+            if row.get('gov_trade_buy_count_90d') or row.get('gov_trade_sell_count_90d') or row.get('gov_trade_recent_trades')
+        ]
     out.sort(
         key=lambda row: (
             -abs(row.get('gov_trade_net_amount_90d') or 0),
@@ -114,6 +128,93 @@ def _build_government_activity(data: dict) -> list:
         )
     )
     return out[:40]
+
+
+def _load_government_trade_map() -> dict:
+    path = settings.government_trades_file or 'data/government_trades.json'
+    p = pathlib.Path(path).expanduser()
+    if not p.is_absolute():
+        p = pathlib.Path.cwd() / p
+    try:
+        if not p.exists():
+            return {}
+        data = json.loads(p.read_text())
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _normalize_government_trade_row(ticker: str, value) -> dict | None:
+    if isinstance(value, dict):
+        row = dict(value)
+        trades = row.get('trades') or row.get('gov_trade_recent_trades') or []
+    elif isinstance(value, list):
+        row = {}
+        trades = value
+    else:
+        return None
+
+    buys = int(row.get('gov_trade_buy_count_90d') or 0)
+    sells = int(row.get('gov_trade_sell_count_90d') or 0)
+    net_amount = float(row.get('gov_trade_net_amount_90d') or 0)
+    members = list(row.get('gov_trade_members') or [])
+    latest_trade_date = row.get('gov_trade_latest_trade_date')
+    latest_disclosure_date = row.get('gov_trade_latest_disclosure_date')
+    recent_trades = []
+
+    for trade in trades:
+        if not isinstance(trade, dict):
+            continue
+        trade_type = str(trade.get('transaction_type') or trade.get('type') or '')
+        amount = float(trade.get('amount_midpoint') or trade.get('amount') or trade.get('estimated_amount') or 0)
+        member = trade.get('member') or trade.get('representative') or trade.get('senator') or ''
+        if member and member not in members:
+            members.append(member)
+        normalized_type = (
+            'Purchase' if 'purchase' in trade_type.lower() or 'buy' in trade_type.lower() else
+            'Sale' if 'sale' in trade_type.lower() or 'sell' in trade_type.lower() else
+            trade_type
+        )
+        if normalized_type == 'Purchase' and not row.get('gov_trade_buy_count_90d'):
+            buys += 1
+        if normalized_type == 'Sale' and not row.get('gov_trade_sell_count_90d'):
+            sells += 1
+        if not row.get('gov_trade_net_amount_90d'):
+            net_amount += amount if normalized_type == 'Purchase' else -amount if normalized_type == 'Sale' else 0
+        latest_trade_date = latest_trade_date or trade.get('trade_date') or trade.get('transaction_date')
+        latest_disclosure_date = latest_disclosure_date or trade.get('disclosure_date')
+        recent_trades.append({
+            'member': member,
+            'chamber': trade.get('chamber') or '',
+            'transaction_type': normalized_type,
+            'amount_midpoint': amount,
+            'trade_date': trade.get('trade_date') or trade.get('transaction_date'),
+            'disclosure_date': trade.get('disclosure_date'),
+            'asset': trade.get('asset') or trade.get('asset_description') or trade.get('description') or '',
+            'source_url': trade.get('source_url') or trade.get('url') or '',
+        })
+
+    signal = row.get('gov_trade_signal')
+    if not signal:
+        if buys >= 3 and len(members) >= 2 and net_amount >= 100000:
+            signal = 'Government Cluster Buy'
+        elif buys > sells and net_amount >= 25000:
+            signal = 'Government Buying'
+        elif sells > buys and net_amount <= -25000:
+            signal = 'Government Selling'
+
+    return {
+        'ticker': ticker.upper(),
+        'gov_trade_buy_count_90d': buys,
+        'gov_trade_sell_count_90d': sells,
+        'gov_trade_net_amount_90d': round(net_amount, 2),
+        'gov_trade_latest_trade_date': latest_trade_date,
+        'gov_trade_latest_disclosure_date': latest_disclosure_date,
+        'gov_trade_members': members[:6],
+        'gov_trade_recent_trades': recent_trades[:12],
+        'gov_trade_signal': signal,
+        'gov_trade_source': row.get('gov_trade_source') or row.get('source') or 'government_trades_file',
+    }
 
 @router.get('/scan', response_model=List[schemas.ScanResultOut])
 def scan_all(sample: int = 50, db: Session = Depends(get_db)):

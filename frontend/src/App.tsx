@@ -12,8 +12,9 @@ import CongressionalActivity from './pages/CongressionalActivity'
 import Banner from './components/Banner'
 import AdminScheduler from './pages/AdminScheduler'
 import { WatchlistProvider } from './context/WatchlistContext'
-import { AuthProvider } from './context/AuthContext'
+import { AuthProvider, useAuth } from './context/AuthContext'
 import GoogleAuthButton from './components/GoogleAuthButton'
+import { isAdminEmail } from './auth/admins'
 
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error: string|null}> {
   constructor(props: any) { super(props); this.state = { error: null } }
@@ -31,10 +32,12 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error:
   }
 }
 
-export default function App(){
+function AppContent() {
   // WatchlistProvider wraps everything so all pages share the same watchlist state
   const [view, setView] = React.useState('dashboard')
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false)
+  const { user } = useAuth()
+  const isAdmin = isAdminEmail(user?.email)
 
   const changeView = (nextView: string) => {
     setView(nextView)
@@ -42,8 +45,7 @@ export default function App(){
   }
 
   return (
-    <AuthProvider>
-      <WatchlistProvider>
+    <WatchlistProvider>
         {/* Header — scrolls away naturally */}
         <div className="app-header-wrap">
           <header className="app-header">
@@ -85,8 +87,7 @@ export default function App(){
                 <button onClick={()=>changeView('options')}>Options Lab</button>
                 <button onClick={()=>changeView('about')} className="mr-2">About</button>
                 <GoogleAuthButton />
-                {/* admin nav */}
-                {true && <button onClick={()=>changeView('admin')} className="ml-2">Admin</button>}
+                {isAdmin && <button onClick={()=>changeView('admin')} className="ml-2">Admin</button>}
               </nav>
             </div>
           </header>
@@ -108,16 +109,28 @@ export default function App(){
               {view === 'reflags' && <ReflagOpportunities />}
               {view === 'options' && <OptionsLab />}
               {view === 'about' && <About />}
-              {view === 'admin' && (
+              {view === 'admin' && isAdmin && (
                 <div className="space-y-8">
                   <Settings />
                   <AdminScheduler />
                 </div>
               )}
+              {view === 'admin' && !isAdmin && (
+                <div className="rounded border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
+                  Sign in with an admin account to access Admin.
+                </div>
+              )}
             </ErrorBoundary>
           </main>
         </div>
-      </WatchlistProvider>
+    </WatchlistProvider>
+  )
+}
+
+export default function App(){
+  return (
+    <AuthProvider>
+      <AppContent />
     </AuthProvider>
   )
 }
