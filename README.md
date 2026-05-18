@@ -199,6 +199,24 @@ Then point the scanner at the output:
 INSTITUTIONAL_OWNERSHIP_CHANGES_FILE=/opt/stock-ai-scanner/data/institutional_ownership_changes.json
 ```
 
+Fetch recent SEC 13F-HR filings directly before a scan:
+```bash
+cp data/sec_13f_managers.example.csv data/sec_13f_managers.csv
+cp data/cusip_ticker_map.example.csv data/cusip_ticker_map.csv
+
+SEC_USER_AGENT="ThetaBrew stock scanner contact=you@example.com" \
+.venv/bin/python scripts/fetch_sec_13f_filings.py \
+  --manager-file data/sec_13f_managers.csv \
+  --cusip-map data/cusip_ticker_map.csv \
+  --output data/institutional_ownership_changes.json
+```
+
+`scripts/run_local_scan_static_deploy.py` now runs that SEC 13F fetch before
+the stock scan whenever both `data/sec_13f_managers.csv` and
+`data/cusip_ticker_map.csv` exist. Use `--skip-13f-fetch` to bypass it. The
+manager file chooses which institutional filers to track; the CUSIP map controls
+which holdings can be mapped back to tickers.
+
 Example government trades JSON:
 ```json
 {

@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
 RESULTS_JSON = ROOT / "scan_results_latest.json"
 ETF_RESULTS_JSON = ROOT / "etf_results_latest.json"
+COMMODITY_RESULTS_JSON = ROOT / "commodity_results_latest.json"
 CRYPTO_RESULTS_JSON = ROOT / "crypto_results_latest.json"
 REFLAG_RESULTS_JSON = ROOT / "reflag_results_latest.json"
 DEMO_DATA_TS = FRONTEND / "src" / "data" / "demoScanResults.ts"
@@ -245,6 +246,12 @@ def build_static_payload(scan: dict[str, Any]) -> dict[str, Any]:
             crypto_scan = json.loads(CRYPTO_RESULTS_JSON.read_text())
         except Exception:
             crypto_scan = {}
+    commodity_scan = {}
+    if COMMODITY_RESULTS_JSON.exists():
+        try:
+            commodity_scan = json.loads(COMMODITY_RESULTS_JSON.read_text())
+        except Exception:
+            commodity_scan = {}
     reflag_scan = {}
     if REFLAG_RESULTS_JSON.exists():
         try:
@@ -263,6 +270,7 @@ def build_static_payload(scan: dict[str, Any]) -> dict[str, Any]:
         "institutional_activity": scan.get("institutional_activity") or build_institutional_activity(scan),
         "government_activity": scan.get("government_activity") or build_government_activity(scan),
         "etf_recommendations": etf_scan,
+        "commodity_analysis": commodity_scan,
         "crypto_analysis": crypto_scan,
         "reflag_analysis": reflag_scan,
     }

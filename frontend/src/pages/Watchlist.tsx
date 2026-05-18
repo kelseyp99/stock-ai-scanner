@@ -22,19 +22,27 @@ function WatchlistNotes({ item }: { item: WatchlistItem }) {
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-      <label className="block text-[11px] font-black uppercase tracking-wide text-slate-500 mb-1">
-        User notes
-      </label>
+    <div className="relative -mt-2 rounded-b-lg border border-t-0 border-blue-100 bg-blue-50/70 px-3 pb-3 pt-5 shadow-sm">
+      <div className="absolute left-6 top-0 h-3 w-px -translate-y-full bg-blue-200" />
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <label className="block text-[11px] font-black uppercase tracking-wide text-blue-700">
+          User note for {item.ticker}
+        </label>
+        {item.updatedAt && (
+          <span className="text-[10px] font-semibold text-blue-300">
+            Updated {new Date(item.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </span>
+        )}
+      </div>
       <textarea
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={save}
         rows={3}
         placeholder="Add your thesis, target, stop, earnings concern, or follow-up reminder..."
-        className="w-full resize-y rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+        className="w-full resize-y rounded-md border border-blue-100 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
       />
-      <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+      <div className="mt-1 flex items-center justify-between text-[11px] text-blue-400">
         <span>{saving ? 'Saving...' : 'Saved when you leave the notes box'}</span>
         <button
           type="button"
@@ -151,8 +159,8 @@ export default function Watchlist() {
                 ✕ Remove
               </button>
             </div>
-            <WatchlistNotes item={item} />
             <SavedAssetSummary item={item} />
+            <WatchlistNotes item={item} />
           </div>
         ))}
       </div>

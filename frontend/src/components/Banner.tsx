@@ -1,6 +1,6 @@
 import React from 'react'
 
-const HOUSE_BANNER = '/sponsor_banners/house_banner.png'
+const HOUSE_BANNER = '/ThetaBrew.png'
 const HOUSE_BANNER_LINK = '/advertise'
 
 export default function Banner() {
@@ -44,6 +44,7 @@ export default function Banner() {
             style={{ maxHeight: 60, maxWidth: '100%', objectFit: 'contain', display: 'block', margin: '0 auto' }}
             onError={(e) => {
               const img = e.currentTarget as HTMLImageElement
+              img.onerror = null
               img.src = HOUSE_BANNER
             }}
           />

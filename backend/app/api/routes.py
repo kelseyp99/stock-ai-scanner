@@ -247,6 +247,7 @@ def scan_grouped(sample: int = 50, db: Session = Depends(get_db)):
 
 _RESULTS_JSON = pathlib.Path(__file__).parents[3] / 'scan_results_latest.json'
 _ETF_RESULTS_JSON = pathlib.Path(__file__).parents[3] / 'etf_results_latest.json'
+_COMMODITY_RESULTS_JSON = pathlib.Path(__file__).parents[3] / 'commodity_results_latest.json'
 _CRYPTO_RESULTS_JSON = pathlib.Path(__file__).parents[3] / 'crypto_results_latest.json'
 _REFLAG_RESULTS_JSON = pathlib.Path(__file__).parents[3] / 'reflag_results_latest.json'
 _PROJECT_ROOT = pathlib.Path(__file__).parents[3]
@@ -306,6 +307,19 @@ def scan_etfs_latest():
     if not _ETF_RESULTS_JSON.exists():
         raise HTTPException(status_code=404, detail='No ETF scan results yet. Run scripts/run_etf_scan.py first.')
     with open(_ETF_RESULTS_JSON) as f:
+        data = json.load(f)
+    data.setdefault('top_ranked', [])
+    data.setdefault('summary', '')
+    data.setdefault('total_scanned', data.get('total_hits', 0))
+    return JSONResponse(content=data)
+
+
+@router.get('/scan/commodities/latest')
+def scan_commodities_latest():
+    """Serve the most recent commodity proxy scan written by scripts/run_commodity_scan.py."""
+    if not _COMMODITY_RESULTS_JSON.exists():
+        raise HTTPException(status_code=404, detail='No commodity scan results yet. Run scripts/run_commodity_scan.py first.')
+    with open(_COMMODITY_RESULTS_JSON) as f:
         data = json.load(f)
     data.setdefault('top_ranked', [])
     data.setdefault('summary', '')

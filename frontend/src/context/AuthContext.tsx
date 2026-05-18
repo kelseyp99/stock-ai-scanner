@@ -1,6 +1,7 @@
 import React from 'react'
 import type { User } from 'firebase/auth'
-import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
+import { getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'firebase/auth'
+import { doc, getFirestore, serverTimestamp, setDoc } from 'firebase/firestore'
 import { getFirebaseAuth, googleProvider, initFirebaseAnalytics } from '../firebase/firebaseApp'
 import { isFirebaseConfigured } from '../firebase/firebaseConfig'
 
@@ -22,6 +23,22 @@ const AuthContext = React.createContext<AuthCtx>({
   signOutUser: async () => {},
 })
 
+async function ensureUserProfile(nextUser: User) {
+  const app = getFirebaseAuth()?.app
+  if (!app) return
+  const db = getFirestore(app)
+  await setDoc(
+    doc(db, 'users', nextUser.uid),
+    {
+      email: nextUser.email || '',
+      displayName: nextUser.displayName || '',
+      photoURL: nextUser.photoURL || '',
+      lastLoginAt: serverTimestamp(),
+    },
+    { merge: true },
+  )
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<User | null>(null)
   const [loading, setLoading] = React.useState(isFirebaseConfigured)
@@ -35,11 +52,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return undefined
     }
 
+    getRedirectResult(auth).catch((authError) => {
+      setError(authError?.message || 'Google redirect sign-in failed.')
+    })
+
     return onAuthStateChanged(
       auth,
       (nextUser) => {
         setUser(nextUser)
         setLoading(false)
+        if (nextUser) {
+          ensureUserProfile(nextUser).catch((profileError) => {
+            setError(profileError?.message || 'Signed in, but user profile setup failed.')
+          })
+        }
       },
       (authError) => {
         setError(authError.message)
@@ -56,10 +82,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setError(null)
+    setLoading(true)
     try {
       await signInWithPopup(auth, googleProvider)
     } catch (authError: any) {
-      setError(authError?.message || 'Google sign-in failed.')
+      const code = authError?.code || ''
+      if (
+        code === 'auth/popup-blocked' ||
+        code === 'auth/cancelled-popup-request' ||
+        code === 'auth/operation-not-supported-in-this-environment'
+      ) {
+        try {
+          await signInWithRedirect(auth, googleProvider)
+          return
+        } catch (redirectError: any) {
+          setError(redirectError?.message || 'Google redirect sign-in failed.')
+        }
+      } else {
+        setError(authError?.message || 'Google sign-in failed.')
+      }
+    } finally {
+      setLoading(false)
     }
   }
 

@@ -5,6 +5,61 @@ import RunDate from '../components/RunDate'
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true'
 
+type CryptoFilterId = 'all' | 'momentum' | 'pullback' | 'high-vol' | 'liquid' | 'near-highs' | 'large-cap'
+type CryptoSortId = 'score' | 'market-cap' | 'rank' | 'volume' | '24h' | '7d' | '30d' | 'volatility' | 'ath'
+
+const CRYPTO_FILTERS: { id: CryptoFilterId; label: string; icon: string }[] = [
+  { id: 'all', label: 'All', icon: '🔍' },
+  { id: 'momentum', label: 'Momentum', icon: '🚀' },
+  { id: 'pullback', label: 'Pullback', icon: '🎯' },
+  { id: 'high-vol', label: 'High Vol', icon: '⚡' },
+  { id: 'liquid', label: 'Liquid', icon: '🌊' },
+  { id: 'near-highs', label: 'Near Highs', icon: '🏔️' },
+  { id: 'large-cap', label: 'Large Cap', icon: '🏛️' },
+]
+
+const CRYPTO_SORTS: { id: CryptoSortId; label: string }[] = [
+  { id: 'score', label: 'Score' },
+  { id: 'market-cap', label: 'Market Cap' },
+  { id: 'rank', label: 'Rank' },
+  { id: 'volume', label: 'Volume' },
+  { id: '24h', label: '24h' },
+  { id: '7d', label: '7d' },
+  { id: '30d', label: '30d' },
+  { id: 'volatility', label: 'Volatility' },
+  { id: 'ath', label: 'Near ATH' },
+]
+
+function applyCryptoFilter(rows: any[], filter: CryptoFilterId) {
+  switch (filter) {
+    case 'momentum': return rows.filter(row => Number(row.price_change_percentage_7d) >= 5 || Number(row.price_change_percentage_30d) >= 10)
+    case 'pullback': return rows.filter(row => Number(row.price_change_percentage_7d) < 0 && Number(row.price_change_percentage_30d) > 0)
+    case 'high-vol': return rows.filter(row => Number(row.sparkline_volatility_7d) >= 25)
+    case 'liquid': return rows.filter(row => Number(row.volume_to_market_cap) >= 0.04 || Number(row.total_volume) >= 1_000_000_000)
+    case 'near-highs': return rows.filter(row => Number(row.ath_change_percentage) >= -20)
+    case 'large-cap': return rows.filter(row => Number(row.market_cap_rank) > 0 && Number(row.market_cap_rank) <= 10)
+    default: return rows
+  }
+}
+
+function sortCrypto(rows: any[], sort: CryptoSortId) {
+  const copy = [...rows]
+  copy.sort((a, b) => {
+    if (sort === 'rank') return Number(a.market_cap_rank || 9999) - Number(b.market_cap_rank || 9999)
+    const key =
+      sort === 'market-cap' ? 'market_cap' :
+      sort === 'volume' ? 'total_volume' :
+      sort === '24h' ? 'price_change_percentage_24h' :
+      sort === '7d' ? 'price_change_percentage_7d' :
+      sort === '30d' ? 'price_change_percentage_30d' :
+      sort === 'volatility' ? 'sparkline_volatility_7d' :
+      sort === 'ath' ? 'ath_change_percentage' :
+      'score'
+    return Number(b[key] || 0) - Number(a[key] || 0)
+  })
+  return copy
+}
+
 function fmtUsd(value: any, compact = false) {
   const n = Number(value)
   if (!Number.isFinite(n)) return '—'
@@ -387,8 +442,12 @@ export default function CryptoDashboard() {
   const [rows, setRows] = React.useState<any[]>([])
   const [summary, setSummary] = React.useState('')
   const [runDate, setRunDate] = React.useState('')
+  const [filter, setFilter] = React.useState<CryptoFilterId>('all')
+  const [sort, setSort] = React.useState<CryptoSortId>('score')
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
+
+  const visibleRows = React.useMemo(() => sortCrypto(applyCryptoFilter(rows, filter), sort), [rows, filter, sort])
 
   React.useEffect(() => {
     async function load() {
@@ -427,6 +486,29 @@ export default function CryptoDashboard() {
       </div>
 
       {summary && <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{summary}</div>}
+      <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {CRYPTO_FILTERS.map(item => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setFilter(item.id)}
+                className={`rounded-md border px-2.5 py-1.5 text-xs font-bold transition-colors ${filter === item.id ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+              >
+                {item.icon} {item.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="font-bold uppercase text-slate-400">Rank by</span>
+            <select value={sort} onChange={(event) => setSort(event.target.value as CryptoSortId)} className="rounded-md border border-slate-200 bg-white px-2 py-1.5 font-bold text-slate-700">
+              {CRYPTO_SORTS.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+            </select>
+            <span className="text-slate-400">{visibleRows.length}/{rows.length}</span>
+          </div>
+        </div>
+      </div>
       {loading && <div className="text-sm text-slate-500">Loading crypto analysis...</div>}
       {error && <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       {!loading && !error && rows.length === 0 && (
@@ -436,7 +518,7 @@ export default function CryptoDashboard() {
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        {rows.map((row) => <CryptoCard key={row.id || row.symbol} row={row} />)}
+        {visibleRows.map((row) => <CryptoCard key={row.id || row.symbol} row={row} />)}
       </div>
     </div>
   )

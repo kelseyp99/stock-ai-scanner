@@ -4,6 +4,7 @@ import Watchlist from './pages/Watchlist'
 import Settings from './pages/Settings'
 import OptionsLab from './pages/OptionsLab'
 import EtfDashboard from './pages/EtfDashboard'
+import CommodityDashboard from './pages/CommodityDashboard'
 import CryptoDashboard from './pages/CryptoDashboard'
 import ReflagOpportunities from './pages/ReflagOpportunities'
 import About from './pages/About'
@@ -15,6 +16,28 @@ import { WatchlistProvider } from './context/WatchlistContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import GoogleAuthButton from './components/GoogleAuthButton'
 import { isAdminEmail } from './auth/admins'
+
+const VALID_VIEWS = new Set([
+  'dashboard',
+  'watchlist',
+  'institutional',
+  'congress',
+  'etfs',
+  'commodities',
+  'crypto',
+  'reflags',
+  'options',
+  'about',
+  'admin',
+])
+
+function getInitialView() {
+  const hashView = window.location.hash.replace(/^#\/?/, '')
+  if (VALID_VIEWS.has(hashView)) return hashView
+  const storedView = window.localStorage.getItem('thetabrew:view') || ''
+  if (VALID_VIEWS.has(storedView)) return storedView
+  return 'dashboard'
+}
 
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error: string|null}> {
   constructor(props: any) { super(props); this.state = { error: null } }
@@ -34,15 +57,31 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error:
 
 function AppContent() {
   // WatchlistProvider wraps everything so all pages share the same watchlist state
-  const [view, setView] = React.useState('dashboard')
+  const [view, setView] = React.useState(getInitialView)
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false)
   const { user } = useAuth()
   const isAdmin = isAdminEmail(user?.email)
 
   const changeView = (nextView: string) => {
+    window.localStorage.setItem('thetabrew:view', nextView)
+    if (window.location.hash !== `#${nextView}`) {
+      window.history.replaceState(null, '', `#${nextView}`)
+    }
     setView(nextView)
     setMobileNavOpen(false)
   }
+
+  React.useEffect(() => {
+    const onHashChange = () => {
+      const nextView = window.location.hash.replace(/^#\/?/, '')
+      if (VALID_VIEWS.has(nextView)) {
+        window.localStorage.setItem('thetabrew:view', nextView)
+        setView(nextView)
+      }
+    }
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
 
   return (
     <WatchlistProvider>
@@ -77,17 +116,18 @@ function AppContent() {
                 aria-label="Main navigation"
                 className={`app-nav ${mobileNavOpen ? 'is-open' : ''}`}
               >
-                <button onClick={()=>changeView('etfs')} className="mr-2">ETFs</button>
-                <button onClick={()=>changeView('dashboard')} className="mr-2">Stocks</button>
-                <button onClick={()=>changeView('crypto')} className="mr-2">Crypto</button>
-                <button onClick={()=>changeView('reflags')} className="mr-2">Re-Flags</button>
-                <button onClick={()=>changeView('watchlist')} className="mr-2">Watchlist</button>
-                <button onClick={()=>changeView('institutional')} className="mr-2">Institutions</button>
-                <button onClick={()=>changeView('congress')} className="mr-2">Congress</button>
-                <button onClick={()=>changeView('options')}>Options Lab</button>
-                <button onClick={()=>changeView('about')} className="mr-2">About</button>
+                <button type="button" onClick={()=>changeView('etfs')} className="mr-2">ETFs</button>
+                <button type="button" onClick={()=>changeView('dashboard')} className="mr-2">Stocks</button>
+                <button type="button" onClick={()=>changeView('commodities')} className="mr-2">Commodities</button>
+                <button type="button" onClick={()=>changeView('crypto')} className="mr-2">Crypto</button>
+                <button type="button" onClick={()=>changeView('reflags')} className="mr-2">Re-Flags</button>
+                <button type="button" onClick={()=>changeView('watchlist')} className="mr-2">Watchlist</button>
+                <button type="button" onClick={()=>changeView('institutional')} className="mr-2">Institutions</button>
+                <button type="button" onClick={()=>changeView('congress')} className="mr-2">Congress</button>
+                <button type="button" onClick={()=>changeView('options')}>Options Lab</button>
+                <button type="button" onClick={()=>changeView('about')} className="mr-2">About</button>
                 <GoogleAuthButton />
-                {isAdmin && <button onClick={()=>changeView('admin')} className="ml-2">Admin</button>}
+                {isAdmin && <button type="button" onClick={()=>changeView('admin')} className="ml-2">Admin</button>}
               </nav>
             </div>
           </header>
@@ -105,6 +145,7 @@ function AppContent() {
               {view === 'institutional' && <InstitutionalActivity />}
               {view === 'congress' && <CongressionalActivity />}
               {view === 'etfs' && <EtfDashboard />}
+              {view === 'commodities' && <CommodityDashboard />}
               {view === 'crypto' && <CryptoDashboard />}
               {view === 'reflags' && <ReflagOpportunities />}
               {view === 'options' && <OptionsLab />}
@@ -123,6 +164,9 @@ function AppContent() {
             </ErrorBoundary>
           </main>
         </div>
+        <footer className="border-t border-slate-200 px-6 py-5 text-center text-xs font-semibold text-slate-400">
+          Copyright SmartCities LLC 2026
+        </footer>
     </WatchlistProvider>
   )
 }

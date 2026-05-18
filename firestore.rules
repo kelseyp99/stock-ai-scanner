@@ -7,8 +7,12 @@ service cloud.firestore {
         && request.auth.token.email in ['werkhardor@gmail.com'];
     }
 
-    match /users/{userId}/watchlist/{ticker} {
-      allow read, create, update, delete: if request.auth != null && request.auth.uid == userId;
+    match /users/{userId} {
+      allow read, create, update: if request.auth != null && request.auth.uid == userId;
+
+      match /watchlist/{ticker} {
+        allow read, create, update, delete: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     match /scan_schedules/{scheduleId} {

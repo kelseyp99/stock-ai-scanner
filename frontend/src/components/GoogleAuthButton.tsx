@@ -17,23 +17,30 @@ export default function GoogleAuthButton(){
   const title = user?.email ? `Signed in as ${user.email}` : error || 'Sign in with Google'
 
   return (
-    <button
-      type="button"
-      className="google-auth-button"
-      disabled={loading}
-      title={title}
-      onClick={() => user ? signOutUser() : signInWithGoogle()}
-    >
-      {user?.photoURL && <img src={user.photoURL} alt="" />}
-      {user ? (
-        <span className="google-auth-copy">
-          <span className="google-auth-status">Signed in as</span>
-          <span className="google-auth-user">{signedInName}</span>
-          <span className="google-auth-action">{label}</span>
+    <span className="google-auth-wrap">
+      <button
+        type="button"
+        className="google-auth-button"
+        disabled={loading}
+        title={title}
+        onClick={() => user ? signOutUser() : signInWithGoogle()}
+      >
+        {user?.photoURL && <img src={user.photoURL} alt="" />}
+        {user ? (
+          <span className="google-auth-copy">
+            <span className="google-auth-status">Signed in as</span>
+            <span className="google-auth-user">{signedInName}</span>
+            <span className="google-auth-action">{label}</span>
+          </span>
+        ) : (
+          <span>{label}</span>
+        )}
+      </button>
+      {error && !user && (
+        <span className="google-auth-error" title={error}>
+          {error}
         </span>
-      ) : (
-        <span>{label}</span>
       )}
-    </button>
+    </span>
   )
 }

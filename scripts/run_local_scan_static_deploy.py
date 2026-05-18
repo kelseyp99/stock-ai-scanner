@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-Run local stock, ETF, and crypto scans, generate the static Firebase snapshot,
+Run local stock, ETF, commodity, and crypto scans, generate the static Firebase snapshot,
 and deploy it.
 
 This is the local/manual equivalent of the Hetzner nightly flow:
 1. Run scripts/run_scan_now.py.
 2. Write scan_results_latest.json.
 3. Run scripts/run_etf_scan.py.
-4. Run scripts/run_crypto_scan.py.
-5. Run scripts/run_reflag_scan.py.
-6. Run scripts/deploy_static_firebase.py.
+4. Run scripts/run_commodity_scan.py.
+5. Run scripts/run_crypto_scan.py.
+6. Run scripts/run_reflag_scan.py.
+7. Run scripts/deploy_static_firebase.py.
 """
 
 from __future__ import annotations
@@ -24,6 +25,9 @@ ROOT = Path(__file__).resolve().parents[1]
 RESULTS_JSON = ROOT / "scan_results_latest.json"
 GOVERNMENT_TRADES_JSON = ROOT / "data" / "government_trades.json"
 DEFAULT_GOVERNMENT_TRADES_INPUT = ROOT / "data" / "government_trades_input.csv"
+INSTITUTIONAL_OWNERSHIP_JSON = ROOT / "data" / "institutional_ownership_changes.json"
+DEFAULT_13F_MANAGER_FILE = ROOT / "data" / "sec_13f_managers.csv"
+DEFAULT_CUSIP_MAP = ROOT / "data" / "cusip_ticker_map.csv"
 
 
 def run(cmd: list[str], cwd: Path) -> None:
@@ -32,7 +36,7 @@ def run(cmd: list[str], cwd: Path) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run stock, ETF, and crypto scans, build static snapshot, and deploy to Firebase.")
+    parser = argparse.ArgumentParser(description="Run stock, ETF, commodity, and crypto scans, build static snapshot, and deploy to Firebase.")
     parser.add_argument("--universes", nargs="+", default=["sp500", "nasdaq100", "russell2000"])
     parser.add_argument("--workers", type=int, default=20)
     parser.add_argument("--top", type=int, default=25)
@@ -47,6 +51,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--with-etfs", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--etf-workers", type=int, default=8)
     parser.add_argument("--etf-top", type=int, default=20)
+    parser.add_argument("--skip-commodities", action="store_true", help="Skip the commodity proxy scanner.")
+    parser.add_argument("--commodity-workers", type=int, default=8)
+    parser.add_argument("--commodity-top", type=int, default=20)
     parser.add_argument("--skip-crypto", action="store_true", help="Skip the large-cap crypto scanner.")
     parser.add_argument("--with-crypto", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--crypto-limit", type=int, default=30)
@@ -56,6 +63,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--persist-reflags", action="store_true", help="Persist re-flag Fib/alert rows to MySQL.")
     parser.add_argument("--government-trades-input", action="append", default=[], help="CSV/JSON STOCK Act disclosure rows to normalize before scanning. Can be repeated.")
     parser.add_argument("--skip-government-trades-ingest", action="store_true", help="Skip normalizing configured government trade input files.")
+    parser.add_argument("--skip-13f-fetch", action="store_true", help="Skip fetching SEC 13F data before the stock scan.")
+    parser.add_argument("--sec-13f-manager-file", default=str(DEFAULT_13F_MANAGER_FILE), help="CSV with cik,manager columns for SEC 13F fetch.")
+    parser.add_argument("--cusip-map", default=str(DEFAULT_CUSIP_MAP), help="CSV/JSON CUSIP-to-ticker map for SEC 13F information tables.")
+    parser.add_argument("--max-13f-filings-per-manager", type=int, default=2, help="Recent 13F filings per configured manager to fetch.")
     parser.add_argument("--project", default="thetaforge-35430", help="Firebase project id.")
     return parser.parse_args()
 
@@ -76,6 +87,28 @@ def main() -> None:
         for path in government_inputs:
             gov_cmd.extend(["--input", str(path)])
         run(gov_cmd, cwd=ROOT)
+
+    manager_file = Path(args.sec_13f_manager_file).expanduser()
+    cusip_map = Path(args.cusip_map).expanduser()
+    if not args.skip_13f_fetch and manager_file.exists() and cusip_map.exists():
+        run([
+            sys.executable,
+            "scripts/fetch_sec_13f_filings.py",
+            "--manager-file",
+            str(manager_file),
+            "--cusip-map",
+            str(cusip_map),
+            "--output",
+            str(INSTITUTIONAL_OWNERSHIP_JSON),
+            "--max-filings-per-manager",
+            str(args.max_13f_filings_per_manager),
+        ], cwd=ROOT)
+    elif not args.skip_13f_fetch:
+        print(
+            "[local-scan-deploy] skipping SEC 13F fetch; "
+            f"expected manager file {manager_file} and CUSIP map {cusip_map}",
+            flush=True,
+        )
 
     scan_cmd = [
         sys.executable,
@@ -115,6 +148,16 @@ def main() -> None:
             str(args.etf_workers),
             "--top",
             str(args.etf_top),
+        ], cwd=ROOT)
+
+    if not args.skip_commodities:
+        run([
+            sys.executable,
+            "scripts/run_commodity_scan.py",
+            "--workers",
+            str(args.commodity_workers),
+            "--top",
+            str(args.commodity_top),
         ], cwd=ROOT)
 
     if run_crypto:

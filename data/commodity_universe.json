@@ -1,0 +1,21 @@
+[
+  {"ticker": "GLD", "name": "SPDR Gold Shares", "theme": "Gold", "commodity_group": "Precious Metals", "option_style": "precious_metals"},
+  {"ticker": "IAU", "name": "iShares Gold Trust", "theme": "Gold", "commodity_group": "Precious Metals", "option_style": "precious_metals"},
+  {"ticker": "SLV", "name": "iShares Silver Trust", "theme": "Silver", "commodity_group": "Precious Metals", "option_style": "precious_metals"},
+  {"ticker": "PPLT", "name": "abrdn Physical Platinum Shares ETF", "theme": "Platinum", "commodity_group": "Precious Metals", "option_style": "precious_metals"},
+  {"ticker": "PALL", "name": "abrdn Physical Palladium Shares ETF", "theme": "Palladium", "commodity_group": "Precious Metals", "option_style": "precious_metals"},
+  {"ticker": "USO", "name": "United States Oil Fund", "theme": "Crude Oil", "commodity_group": "Energy", "option_style": "energy"},
+  {"ticker": "BNO", "name": "United States Brent Oil Fund", "theme": "Brent Oil", "commodity_group": "Energy", "option_style": "energy"},
+  {"ticker": "UNG", "name": "United States Natural Gas Fund", "theme": "Natural Gas", "commodity_group": "Energy", "option_style": "energy"},
+  {"ticker": "DBE", "name": "Invesco DB Energy Fund", "theme": "Energy Basket", "commodity_group": "Energy", "option_style": "energy"},
+  {"ticker": "CPER", "name": "United States Copper Index Fund", "theme": "Copper", "commodity_group": "Industrial Metals", "option_style": "industrial_metals"},
+  {"ticker": "DBB", "name": "Invesco DB Base Metals Fund", "theme": "Base Metals", "commodity_group": "Industrial Metals", "option_style": "industrial_metals"},
+  {"ticker": "XME", "name": "SPDR S&P Metals & Mining ETF", "theme": "Metals & Mining Equities", "commodity_group": "Industrial Metals", "option_style": "commodity_equities"},
+  {"ticker": "URA", "name": "Global X Uranium ETF", "theme": "Uranium Equities", "commodity_group": "Energy Materials", "option_style": "commodity_equities"},
+  {"ticker": "DBA", "name": "Invesco DB Agriculture Fund", "theme": "Agriculture Basket", "commodity_group": "Agriculture", "option_style": "agriculture"},
+  {"ticker": "CORN", "name": "Teucrium Corn Fund", "theme": "Corn", "commodity_group": "Agriculture", "option_style": "agriculture"},
+  {"ticker": "WEAT", "name": "Teucrium Wheat Fund", "theme": "Wheat", "commodity_group": "Agriculture", "option_style": "agriculture"},
+  {"ticker": "SOYB", "name": "Teucrium Soybean Fund", "theme": "Soybeans", "commodity_group": "Agriculture", "option_style": "agriculture"},
+  {"ticker": "DBC", "name": "Invesco DB Commodity Index Tracking Fund", "theme": "Broad Commodities", "commodity_group": "Broad Basket", "option_style": "broad_commodity"},
+  {"ticker": "GSG", "name": "iShares S&P GSCI Commodity-Indexed Trust", "theme": "Broad Commodities", "commodity_group": "Broad Basket", "option_style": "broad_commodity"}
+]

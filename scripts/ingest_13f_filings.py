@@ -105,7 +105,9 @@ def _strip_ns(tag: str) -> str:
 
 
 def _child_text(node: ET.Element, names: set[str]) -> str:
-    for child in list(node):
+    for child in node.iter():
+        if child is node:
+            continue
         if _strip_ns(child.tag) in names:
             return (child.text or "").strip()
     return ""

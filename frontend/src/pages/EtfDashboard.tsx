@@ -5,6 +5,58 @@ import RunDate from '../components/RunDate'
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true'
 
+type EtfFilterId = 'all' | 'momentum' | 'oversold' | 'buy-zone' | 'high-vol' | 'low-vol' | 'outperforming' | 'income'
+type EtfSortId = 'score' | 'relative' | 'volume' | 'volatility' | 'rsi' | 'theme'
+
+const ETF_FILTERS: { id: EtfFilterId; label: string; icon: string }[] = [
+  { id: 'all', label: 'All', icon: '🔍' },
+  { id: 'momentum', label: 'Momentum', icon: '🚀' },
+  { id: 'oversold', label: 'Oversold', icon: '💚' },
+  { id: 'buy-zone', label: 'Buy Zone', icon: '🎯' },
+  { id: 'high-vol', label: 'High Vol', icon: '⚡' },
+  { id: 'low-vol', label: 'Low Vol', icon: '🛡️' },
+  { id: 'outperforming', label: 'Outperforming', icon: '↗️' },
+  { id: 'income', label: 'Income', icon: '💰' },
+]
+
+const ETF_SORTS: { id: EtfSortId; label: string }[] = [
+  { id: 'score', label: 'Score' },
+  { id: 'relative', label: 'vs SPY' },
+  { id: 'volume', label: 'Volume' },
+  { id: 'volatility', label: 'ATR%' },
+  { id: 'rsi', label: 'RSI' },
+  { id: 'theme', label: 'Theme' },
+]
+
+function applyEtfFilter(rows: any[], filter: EtfFilterId) {
+  const cats = (row: any) => row.categories ?? []
+  switch (filter) {
+    case 'momentum': return rows.filter(row => cats(row).includes('Momentum') || Number(row.rsi) >= 65)
+    case 'oversold': return rows.filter(row => cats(row).includes('Oversold') || Number(row.rsi) <= 35)
+    case 'buy-zone': return rows.filter(row => row.in_buy_zone || cats(row).includes('Mean Reversion Setup'))
+    case 'high-vol': return rows.filter(row => Number(row.atr_pct) >= 3)
+    case 'low-vol': return rows.filter(row => Number(row.atr_pct) > 0 && Number(row.atr_pct) < 1.5)
+    case 'outperforming': return rows.filter(row => Number(row.relative_strength_20d) >= 5)
+    case 'income': return rows.filter(row => Number(row.dividend_yield_percent || row.dividend_yield) > 0 || String(row.etf_option_style || '').toLowerCase().includes('income'))
+    default: return rows
+  }
+}
+
+function sortEtfs(rows: any[], sort: EtfSortId) {
+  const copy = [...rows]
+  copy.sort((a, b) => {
+    if (sort === 'theme') return String(a.etf_theme || '').localeCompare(String(b.etf_theme || '')) || String(a.ticker || '').localeCompare(String(b.ticker || ''))
+    const key =
+      sort === 'relative' ? 'relative_strength_20d' :
+      sort === 'volume' ? 'volume_ratio' :
+      sort === 'volatility' ? 'atr_pct' :
+      sort === 'rsi' ? 'rsi' :
+      'score'
+    return Number(b[key] || 0) - Number(a[key] || 0)
+  })
+  return copy
+}
+
 function fmt(value: any, digits = 1) {
   const n = Number(value)
   if (!Number.isFinite(n)) return '—'
@@ -413,8 +465,12 @@ export default function EtfDashboard() {
   const [rows, setRows] = React.useState<any[]>([])
   const [summary, setSummary] = React.useState('')
   const [runDate, setRunDate] = React.useState('')
+  const [filter, setFilter] = React.useState<EtfFilterId>('all')
+  const [sort, setSort] = React.useState<EtfSortId>('score')
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
+
+  const visibleRows = React.useMemo(() => sortEtfs(applyEtfFilter(rows, filter), sort), [rows, filter, sort])
 
   React.useEffect(() => {
     async function load() {
@@ -453,6 +509,29 @@ export default function EtfDashboard() {
       </div>
 
       {summary && <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">{summary}</div>}
+      <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {ETF_FILTERS.map(item => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setFilter(item.id)}
+                className={`rounded-md border px-2.5 py-1.5 text-xs font-bold transition-colors ${filter === item.id ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+              >
+                {item.icon} {item.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="font-bold uppercase text-slate-400">Rank by</span>
+            <select value={sort} onChange={(event) => setSort(event.target.value as EtfSortId)} className="rounded-md border border-slate-200 bg-white px-2 py-1.5 font-bold text-slate-700">
+              {ETF_SORTS.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+            </select>
+            <span className="text-slate-400">{visibleRows.length}/{rows.length}</span>
+          </div>
+        </div>
+      </div>
       {loading && <div className="text-sm text-slate-500">Loading ETF scan...</div>}
       {error && <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       {!loading && !error && rows.length === 0 && (
@@ -462,7 +541,7 @@ export default function EtfDashboard() {
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        {rows.map((row) => <EtfCard key={row.ticker} row={row} />)}
+        {visibleRows.map((row) => <EtfCard key={row.ticker} row={row} />)}
       </div>
     </div>
   )
