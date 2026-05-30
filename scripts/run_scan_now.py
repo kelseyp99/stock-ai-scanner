@@ -60,15 +60,23 @@ def _post_results(url: str, payload: dict) -> None:
     """POST scan results payload to a remote ingest endpoint."""
     import urllib.request
     import urllib.error
-    token = os.environ.get('SCAN_INGEST_TOKEN', 'changeme-set-SCAN_INGEST_TOKEN')
-    body = json.dumps(payload, default=str).encode('utf-8')
+    token = (os.environ.get('SCAN_INGEST_TOKEN') or
+             os.environ.get('THETABREW_INGEST_TOKEN') or
+             'changeme-set-SCAN_INGEST_TOKEN')
+    # Send token in the JSON body (not Authorization header) so Cloudflare WAF
+    # does not block requests from datacenter IPs — same pattern as the
+    # foreclosure worker which POSTs multipart with no auth header.
+    payload_with_token = {**payload, 'ingest_token': token}
+    body = json.dumps(payload_with_token, default=str).encode('utf-8')
     req = urllib.request.Request(
         url,
         data=body,
         method='POST',
         headers={
             'Content-Type': 'application/json',
-            'Authorization': f'Bearer {token}',
+            # Use a generic browser User-Agent so Cloudflare WAF does not
+            # flag the request as a bot (Python-urllib is blocked by CF error 1010).
+            'User-Agent': 'Mozilla/5.0 (compatible; TrueForeclosure/1.0)',
         },
     )
     try:
@@ -321,6 +329,11 @@ def main():
         help='Top N results to include in the summary (default: 25)',
     )
     parser.add_argument(
+        '--job-id', default=None,
+        metavar='ID',
+        help='download_jobs.job_id to include in callback payload (set by scheduler).'
+    )
+    parser.add_argument(
         '--callback-url', default=None,
         metavar='URL',
         help='POST scan results to this URL when done (e.g. https://your-host/scan/ingest). '
@@ -435,7 +448,16 @@ def main():
 
     # ── POST to callback URL if provided ─────────────────────────────────────
     if args.callback_url:
-        _post_results(args.callback_url, payload)
+        import socket
+        # Wrap scan data under 'results' key so the Mac can save it to
+        # scan_results_latest.json and skip re-running the stock scan locally.
+        callback_payload = {
+            'job_id':  args.job_id,
+            'status':  'success',
+            'host':    socket.gethostname(),
+            'results': payload,   # full scan data: global_top, ai_summary, etc.
+        }
+        _post_results(args.callback_url, callback_payload)
 
     # ── Print top picks to console ────────────────────────────────────────────
     log.info('═' * 60)
