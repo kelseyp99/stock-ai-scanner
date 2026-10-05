@@ -13,15 +13,15 @@ export default defineConfig({
     proxy: {
       // Forward all /options/* and /scan* API calls to the FastAPI backend
       '/options': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8002',
         changeOrigin: true,
       },
       '/scan': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8002',
         changeOrigin: true,
       },
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8002',
         changeOrigin: true,
       },
     },

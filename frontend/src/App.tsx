@@ -12,6 +12,7 @@ import InstitutionalActivity from './pages/InstitutionalActivity'
 import CongressionalActivity from './pages/CongressionalActivity'
 import Banner from './components/Banner'
 import AdminScheduler from './pages/AdminScheduler'
+import StoriesWatching from './pages/StoriesWatching'
 import { WatchlistProvider } from './context/WatchlistContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import GoogleAuthButton from './components/GoogleAuthButton'
@@ -29,6 +30,7 @@ const VALID_VIEWS = new Set([
   'options',
   'about',
   'admin',
+  'stories',
 ])
 
 function getInitialView() {
@@ -125,6 +127,7 @@ function AppContent() {
                 <button type="button" onClick={()=>changeView('institutional')} className="mr-2">Institutions</button>
                 <button type="button" onClick={()=>changeView('congress')} className="mr-2">Congress</button>
                 <button type="button" onClick={()=>changeView('options')}>Options Lab</button>
+                <button type="button" onClick={()=>changeView('stories')} className="mr-2">Stories We're Watching</button>
                 <button type="button" onClick={()=>changeView('about')} className="mr-2">About</button>
                 <GoogleAuthButton />
                 {isAdmin && <button type="button" onClick={()=>changeView('admin')} className="ml-2">Admin</button>}
@@ -150,6 +153,7 @@ function AppContent() {
               {view === 'reflags' && <ReflagOpportunities />}
               {view === 'options' && <OptionsLab />}
               {view === 'about' && <About />}
+              {view === 'stories' && <StoriesWatching />}
               {view === 'admin' && isAdmin && (
                 <div className="space-y-8">
                   <Settings />
